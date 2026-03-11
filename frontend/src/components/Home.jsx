@@ -87,16 +87,16 @@ export default function Home() {
               <span className="font-bold text-lg text-slate-700 dark:text-slate-200">Drawing</span>
             </button>
 
-            {/* Discovery Card */}
-            <button onClick={() => navigate('/game')} className="flex flex-col items-center gap-3 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border-b-4 border-accent-blue active:border-b-0 active:translate-y-1 transition-all h-40 justify-center group">
-              <div className="w-16 h-16 bg-accent-blue/20 text-accent-blue rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                <span className="material-symbols-outlined text-[40px]">search</span>
+            {/* Animals Card */}
+            <button onClick={() => navigate('/game/animals')} className="flex flex-col items-center gap-3 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border-b-4 border-accent-blue active:border-b-0 active:translate-y-1 transition-all h-40 justify-center group">
+              <div className="w-16 h-16 bg-accent-blue/20 text-accent-blue rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300 text-4xl">
+                🐾
               </div>
-              <span className="font-bold text-lg text-slate-700 dark:text-slate-200">Discovery</span>
+              <span className="font-bold text-lg text-slate-700 dark:text-slate-200">Animals</span>
             </button>
 
             {/* Numbers Card */}
-            <button onClick={() => navigate('/game')} className="flex flex-col items-center gap-3 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border-b-4 border-accent-yellow active:border-b-0 active:translate-y-1 transition-all h-40 justify-center group">
+            <button onClick={() => navigate('/game/math')} className="flex flex-col items-center gap-3 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border-b-4 border-accent-yellow active:border-b-0 active:translate-y-1 transition-all h-40 justify-center group">
               <div className="w-16 h-16 bg-accent-yellow/20 text-accent-yellow rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                 <span className="material-symbols-outlined text-[40px]">calculate</span>
               </div>
