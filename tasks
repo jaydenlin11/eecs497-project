@@ -1,0 +1,8 @@
+Note recognizing game 
+The user enters the game page, which consists of a piano keyboard. A note will be played, and the user needs to play the same note on the keyboard to pass the game. To prevent brute-forcing, the game allows only three tries per round.
+There are two modes: easy mode where the piano is shown, and hard mode where the piano is not shown.
+
+
+
+Whack-a-mole game
+User enters the whack-a-mole game page. The page consists of many levels. Level 1 is available from the start. To proceed to higher levels, earlier levels must be cleared. When the user enters a level, the game will teach the user what various different items/images are (e.g., “this is a beaver”, “this is a car engine”). Each level can have some kind of theme. The whack-a-mole game will then begin, and the user must hit the object that matches the text on the screen. The game should require a combination of learning what various items are and exercising good reaction time.

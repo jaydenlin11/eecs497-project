@@ -71,20 +71,20 @@ export default function Home() {
           <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4 pl-1">Let's Play!</h3>
           <div className="grid grid-cols-2 gap-4 pb-6">
 
-            {/* Music Card */}
-            <button onClick={() => navigate('/game')} className="flex flex-col items-center gap-3 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border-b-4 border-accent-purple active:border-b-0 active:translate-y-1 transition-all h-40 justify-center group">
-              <div className="w-16 h-16 bg-accent-purple/20 text-accent-purple rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                <span className="material-symbols-outlined text-[40px]">music_note</span>
+            {/* Music / Notes Card */}
+            <button onClick={() => navigate('/game/notes')} className="flex flex-col items-center gap-3 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border-b-4 border-accent-purple active:border-b-0 active:translate-y-1 transition-all h-40 justify-center group">
+              <div className="w-16 h-16 bg-accent-purple/20 text-accent-purple rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300 text-4xl">
+                🎹
               </div>
               <span className="font-bold text-lg text-slate-700 dark:text-slate-200">Music</span>
             </button>
 
-            {/* Drawing Card */}
-            <button onClick={() => navigate('/game')} className="flex flex-col items-center gap-3 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border-b-4 border-accent-red active:border-b-0 active:translate-y-1 transition-all h-40 justify-center group">
-              <div className="w-16 h-16 bg-accent-red/20 text-accent-red rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                <span className="material-symbols-outlined text-[40px]">palette</span>
+            {/* Whack-a-Mole Card */}
+            <button onClick={() => navigate('/game/whackamole')} className="flex flex-col items-center gap-3 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border-b-4 border-accent-red active:border-b-0 active:translate-y-1 transition-all h-40 justify-center group">
+              <div className="w-16 h-16 bg-accent-red/20 text-accent-red rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300 text-4xl">
+                🔨
               </div>
-              <span className="font-bold text-lg text-slate-700 dark:text-slate-200">Drawing</span>
+              <span className="font-bold text-lg text-slate-700 dark:text-slate-200">Whack!</span>
             </button>
 
             {/* Animals Card */}
