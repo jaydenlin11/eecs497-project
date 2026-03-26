@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useGameSession } from '../hooks/useGameSession'
 
 const ANIMALS = [
   { name: 'Dog', emoji: '🐶' },
@@ -92,12 +93,16 @@ function ModeSelect({ onSelect }) {
 // ── CLICK MODE ───────────────────────────────────────────────────────────────
 
 function ClickMode({ onBack }) {
+  const navigate = useNavigate()
   const [round, setRound] = useState(() => pickRound(null))
   const [feedback, setFeedback] = useState(null) // null | 'correct' | 'wrong'
   const [score, setScore] = useState(0)
   const [total, setTotal] = useState(0)
   const [wrongIdx, setWrongIdx] = useState(null)
   const timeoutRef = useRef(null)
+  const { setScore: setSessionScore } = useGameSession('animals')
+
+  useEffect(() => { setSessionScore(score) }, [score]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePick = useCallback((animal, idx) => {
     if (feedback) return
@@ -133,7 +138,9 @@ function ClickMode({ onBack }) {
         <div className="bg-white/70 backdrop-blur-sm px-4 py-1.5 rounded-full shadow-sm font-bold text-slate-700">
           ⭐ {score} / {total}
         </div>
-        <div className="w-10" />
+        <button onClick={() => navigate('/')} className="w-10 h-10 bg-white/70 rounded-full flex items-center justify-center shadow-sm">
+          <span className="material-symbols-outlined text-slate-500">home</span>
+        </button>
       </div>
 
       {/* Prompt */}
@@ -197,6 +204,7 @@ function ClickMode({ onBack }) {
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
 
 function AudioMode({ onBack }) {
+  const navigate = useNavigate()
   const [animal, setAnimal] = useState(() => ANIMALS[Math.floor(Math.random() * ANIMALS.length)])
   const [listening, setListening] = useState(false)
   const [transcript, setTranscript] = useState('')
@@ -205,6 +213,9 @@ function AudioMode({ onBack }) {
   const [total, setTotal] = useState(0)
   const recognitionRef = useRef(null)
   const timeoutRef = useRef(null)
+  const { setScore: setSessionScore } = useGameSession('animals')
+
+  useEffect(() => { setSessionScore(score) }, [score]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const nextAnimal = useCallback(() => {
     setFeedback(null)
@@ -275,7 +286,9 @@ function AudioMode({ onBack }) {
         <div className="bg-white/70 backdrop-blur-sm px-4 py-1.5 rounded-full shadow-sm font-bold text-slate-700">
           ⭐ {score} / {total}
         </div>
-        <div className="w-10" />
+        <button onClick={() => navigate('/')} className="w-10 h-10 bg-white/70 rounded-full flex items-center justify-center shadow-sm">
+          <span className="material-symbols-outlined text-slate-500">home</span>
+        </button>
       </div>
 
       {/* Animal display */}

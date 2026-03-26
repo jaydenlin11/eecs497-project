@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useGameSession } from '../hooks/useGameSession'
 
 function generateProblem() {
   const isAdd = Math.random() > 0.45
@@ -33,6 +34,9 @@ export default function MathGame() {
   const [shake, setShake] = useState(false)
   const inputRef = useRef(null)
   const timeoutRef = useRef(null)
+  const { setScore: setSessionScore } = useGameSession('math')
+
+  useEffect(() => { setSessionScore(score) }, [score]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-focus the input
   useEffect(() => {

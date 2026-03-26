@@ -1,7 +1,100 @@
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+import { api } from '../api'
+import PinModal from './PinModal'
+
+const GAME_META = {
+  math:       { label: 'Logic & Math',  icon: 'calculate',  color: 'bg-primary',     scoreMax: 50  },
+  notes:      { label: 'Music',         icon: 'music_note', color: 'bg-accent-purple', scoreMax: 30 },
+  animals:    { label: 'Animals',       icon: 'pets',       color: 'bg-accent-blue',   scoreMax: 30 },
+  whackamole: { label: 'Motor Skills',  icon: 'touch_app',  color: 'bg-accent-red',    scoreMax: 25 },
+}
+
+function pct(totalScore, max) {
+  return Math.min(100, Math.round((totalScore / max) * 100))
+}
+
+function fmtDuration(seconds) {
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  if (h > 0) return `${h}h ${m}m`
+  return `${m}m`
+}
 
 export default function Insights() {
   const navigate = useNavigate()
+  const { parent, childProfiles, logout } = useAuth()
+
+  const [selectedChildId, setSelectedChildId] = useState(childProfiles[0]?.id ?? null)
+  const [insights, setInsights] = useState(null)
+  const [settings, setSettings] = useState(null)
+  const [loadingInsights, setLoadingInsights] = useState(false)
+  const [screenTimeLimit, setScreenTimeLimit] = useState(60)
+  const [savingLimit, setSavingLimit] = useState(false)
+  const [audioEnabled, setAudioEnabled] = useState(true)
+
+  // PIN change flow
+  const [showChangePinModal, setShowChangePinModal] = useState(false)
+  const [showNewPinModal, setShowNewPinModal] = useState(false)
+  const [pinSuccessMsg, setPinSuccessMsg] = useState('')
+
+  // Load settings once
+  useEffect(() => {
+    api.getSettings().then((s) => {
+      setSettings(s)
+      setScreenTimeLimit(s.screen_time_limit)
+      setAudioEnabled(s.audio_enabled)
+    }).catch(() => {})
+  }, [])
+
+  // Load insights when selected child changes
+  useEffect(() => {
+    if (!selectedChildId) return
+    setLoadingInsights(true)
+    api.getInsights(selectedChildId)
+      .then(setInsights)
+      .catch(() => setInsights(null))
+      .finally(() => setLoadingInsights(false))
+  }, [selectedChildId])
+
+  async function saveScreenTimeLimit(val) {
+    setSavingLimit(true)
+    try {
+      await api.updateSettings({ screen_time_limit: val })
+      setScreenTimeLimit(val)
+    } finally {
+      setSavingLimit(false)
+    }
+  }
+
+  async function toggleAudio(val) {
+    setAudioEnabled(val)
+    await api.updateSettings({ audio_enabled: val }).catch(() => setAudioEnabled(!val))
+  }
+
+  // Change PIN flow: first verify current PIN, then set new one
+  async function verifyCurrentPin(pin) {
+    await api.verifyPin(pin) // throws on failure
+  }
+
+  function onCurrentPinSuccess() {
+    setShowChangePinModal(false)
+    setShowNewPinModal(true)
+  }
+
+  async function verifyNewPin(pin) {
+    // "Verify" by setting it — if it fails, it throws
+    await api.setPin(pin)
+  }
+
+  function onNewPinSuccess(pin) {
+    setShowNewPinModal(false)
+    setPinSuccessMsg('PIN updated successfully!')
+    setTimeout(() => setPinSuccessMsg(''), 3000)
+  }
+
+  const selectedChild = childProfiles.find((c) => c.id === selectedChildId)
 
   return (
     <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display min-h-screen flex flex-col antialiased">
@@ -15,14 +108,142 @@ export default function Insights() {
           >
             <span className="material-symbols-outlined">arrow_back</span>
           </button>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Parent Dashboard</h1>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Parent Dashboard</h1>
+            {parent && <p className="text-xs text-slate-500">Hi, {parent.name}!</p>}
+          </div>
         </div>
-        <button className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
-          <span className="material-symbols-outlined">settings</span>
+        <button
+          onClick={logout}
+          className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-800 text-slate-500 hover:bg-slate-100 transition-colors"
+          title="Sign out"
+        >
+          <span className="material-symbols-outlined text-lg">logout</span>
         </button>
       </header>
 
       <main className="flex-1 px-4 py-6 flex flex-col gap-6 overflow-y-auto pb-24">
+
+        {/* Child selector */}
+        {childProfiles.length > 1 && (
+          <section className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+            {childProfiles.map((child) => (
+              <button
+                key={child.id}
+                onClick={() => setSelectedChildId(child.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold shrink-0 transition-all ${
+                  child.id === selectedChildId
+                    ? 'bg-primary border-primary text-slate-900'
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-primary/50'
+                }`}
+              >
+                <span>{child.avatar}</span>
+                {child.name}
+              </button>
+            ))}
+          </section>
+        )}
+
+        {/* Child profile card */}
+        {selectedChild && (
+          <section className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 text-white shadow-lg relative overflow-hidden">
+            <div className="relative z-10 flex items-center gap-4">
+              <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-3xl border-4 border-white/20 shadow-md">
+                {selectedChild.avatar}
+              </div>
+              <div>
+                <h3 className="font-bold text-lg">{selectedChild.name}'s Profile</h3>
+                <p className="text-blue-100 text-sm">Age: {selectedChild.age} year{selectedChild.age !== 1 ? 's' : ''}</p>
+              </div>
+            </div>
+            <div className="absolute -right-6 -bottom-10 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
+            <div className="absolute -left-6 -top-10 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
+          </section>
+        )}
+
+        {/* Learning Progress */}
+        <section className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-purple-500">
+              <span className="material-symbols-outlined">insights</span>
+            </div>
+            <div>
+              <h2 className="text-lg font-bold leading-tight">Learning Progress</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Based on all sessions</p>
+            </div>
+          </div>
+
+          {loadingInsights ? (
+            <p className="text-slate-400 text-sm text-center py-4">Loading…</p>
+          ) : insights ? (
+            <>
+              <div className="space-y-5">
+                {Object.entries(GAME_META).map(([game, meta]) => {
+                  const stats = insights.game_stats[game]
+                  const totalScore = stats?.total_score ?? 0
+                  const progress = pct(totalScore, meta.scoreMax)
+                  return (
+                    <div key={game} className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                          <span className="material-symbols-outlined text-base">{meta.icon}</span>
+                          {meta.label}
+                        </span>
+                        <span className="font-bold text-slate-900 dark:text-white">
+                          {stats ? `${stats.sessions} session${stats.sessions !== 1 ? 's' : ''}` : 'No data'}
+                        </span>
+                      </div>
+                      <div className="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full ${meta.color} rounded-full transition-all duration-500`}
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                      {stats && (
+                        <p className="text-xs text-slate-400">Best score: {stats.best_score} · Total: {stats.total_score} pts</p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-4">
+                <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg text-center">
+                  <p className="text-2xl font-bold text-slate-900 dark:text-white">{insights.total_sessions}</p>
+                  <p className="text-xs text-slate-500">Activities Done</p>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg text-center">
+                  <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                    {fmtDuration(insights.total_duration_seconds)}
+                  </p>
+                  <p className="text-xs text-slate-500">Total Play Time</p>
+                </div>
+              </div>
+
+              {/* Recent sessions */}
+              {insights.recent_sessions.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <h3 className="text-sm font-bold text-slate-700 mb-3">Recent Activity</h3>
+                  <div className="space-y-2">
+                    {insights.recent_sessions.slice(0, 5).map((s) => {
+                      const meta = GAME_META[s.game] ?? { label: s.game, icon: 'sports_esports', color: 'bg-slate-400' }
+                      return (
+                        <div key={s.id} className="flex items-center gap-3 text-sm">
+                          <span className="material-symbols-outlined text-slate-400 text-base">{meta.icon}</span>
+                          <span className="text-slate-700 flex-1">{meta.label}</span>
+                          <span className="font-semibold text-slate-800">⭐ {s.score}</span>
+                          <span className="text-slate-400">{fmtDuration(s.duration_seconds)}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-slate-400 text-sm text-center py-4">No data yet. Start playing!</p>
+          )}
+        </section>
 
         {/* Screen Time Control */}
         <section className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-100 dark:border-slate-800">
@@ -39,18 +260,20 @@ export default function Insights() {
             <div className="flex justify-between items-end">
               <span className="text-sm font-medium text-slate-500 dark:text-slate-400">Set Limit</span>
               <span className="text-2xl font-bold text-slate-900 dark:text-white">
-                45 <span className="text-sm font-normal text-slate-500">mins</span>
+                {screenTimeLimit} <span className="text-sm font-normal text-slate-500">mins</span>
               </span>
             </div>
-            <div className="relative h-6 flex items-center">
-              <input
-                className="range-slider w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-primary focus:outline-none"
-                type="range"
-                min="0"
-                max="120"
-                defaultValue="45"
-              />
-            </div>
+            <input
+              className="range-slider w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-primary focus:outline-none"
+              type="range"
+              min="15"
+              max="120"
+              step="5"
+              value={screenTimeLimit}
+              onChange={(e) => setScreenTimeLimit(Number(e.target.value))}
+              onMouseUp={(e) => saveScreenTimeLimit(Number(e.target.value))}
+              onTouchEnd={(e) => saveScreenTimeLimit(Number(e.target.value))}
+            />
             <div className="flex justify-between text-xs text-slate-400 font-medium">
               <span>15m</span>
               <span>30m</span>
@@ -58,80 +281,12 @@ export default function Insights() {
               <span>1h</span>
               <span>2h</span>
             </div>
-            <div className="mt-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg flex items-start gap-3">
-              <span className="material-symbols-outlined text-slate-400 text-lg mt-0.5">info</span>
-              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                App locks automatically after limit is reached. Can be unlocked with your PIN.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* Learning Progress */}
-        <section className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-100 dark:border-slate-800">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-purple-500">
-                <span className="material-symbols-outlined">insights</span>
+            {savingLimit && <p className="text-xs text-slate-400 text-center">Saving…</p>}
+            {insights && (
+              <div className="p-3 bg-blue-50 dark:bg-slate-800/50 rounded-lg text-xs text-blue-700 dark:text-slate-300">
+                Today: {fmtDuration(insights.today_duration_seconds)} used of {screenTimeLimit}m limit
               </div>
-              <div>
-                <h2 className="text-lg font-bold leading-tight">Learning Progress</h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Weekly skill growth</p>
-              </div>
-            </div>
-            <button className="text-xs font-bold text-primary hover:text-green-600 transition-colors">View Report</button>
-          </div>
-
-          <div className="space-y-5">
-            {/* Literacy */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-base">menu_book</span> Literacy
-                </span>
-                <span className="font-bold text-slate-900 dark:text-white">82%</span>
-              </div>
-              <div className="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                <div className="h-full bg-blue-400 rounded-full w-[82%]"></div>
-              </div>
-            </div>
-
-            {/* Logic & Math */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-base">calculate</span> Logic &amp; Math
-                </span>
-                <span className="font-bold text-slate-900 dark:text-white">65%</span>
-              </div>
-              <div className="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                <div className="h-full bg-primary rounded-full w-[65%]"></div>
-              </div>
-            </div>
-
-            {/* Motor Skills */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-base">touch_app</span> Motor Skills
-                </span>
-                <span className="font-bold text-slate-900 dark:text-white">48%</span>
-              </div>
-              <div className="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                <div className="h-full bg-orange-400 rounded-full w-[48%]"></div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-4">
-            <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg text-center">
-              <p className="text-2xl font-bold text-slate-900 dark:text-white">12</p>
-              <p className="text-xs text-slate-500">Activities Done</p>
-            </div>
-            <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg text-center">
-              <p className="text-2xl font-bold text-slate-900 dark:text-white">3.5h</p>
-              <p className="text-xs text-slate-500">Total Focus Time</p>
-            </div>
+            )}
           </div>
         </section>
 
@@ -157,39 +312,30 @@ export default function Insights() {
                 COPPA Compliant
               </span>
             </div>
-            {/* Toggle Switch */}
             <label className="relative inline-flex items-center cursor-pointer">
-              <input defaultChecked className="sr-only peer" type="checkbox" />
+              <input
+                className="sr-only peer"
+                type="checkbox"
+                checked={audioEnabled}
+                onChange={(e) => toggleAudio(e.target.checked)}
+              />
               <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/30 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
             </label>
           </div>
 
+          {pinSuccessMsg && (
+            <p className="text-green-600 text-sm text-center bg-green-50 py-2 px-3 rounded-lg mt-3">{pinSuccessMsg}</p>
+          )}
+
           <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-            <button className="w-full py-3 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white bg-slate-50 dark:bg-slate-800 rounded-lg flex items-center justify-center gap-2">
+            <button
+              onClick={() => setShowChangePinModal(true)}
+              className="w-full py-3 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white bg-slate-50 dark:bg-slate-800 rounded-lg flex items-center justify-center gap-2 transition-colors"
+            >
               <span className="material-symbols-outlined text-lg">shield_person</span>
               Change Parent PIN
             </button>
           </div>
-        </section>
-
-        {/* Child Profile */}
-        <section className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 text-white shadow-lg relative overflow-hidden">
-          <div className="relative z-10 flex items-center gap-4">
-            <img
-              className="w-16 h-16 rounded-full border-4 border-white/20 object-cover shadow-md"
-              alt="Smiling toddler girl playing with blocks"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuBsFzlist16FuOy3a0-_HjwmvWk83kpxA-kqQDoVVoFYuPk5sbOFwn8HsKRgythMCMzIv0EwdJ1iUJ_A5AbfQ8N5-f73WSgPHHzHo76tkDP-KaxWyVp43grNJO7-RwxqPHGqpol769jnYZzqjTZokuoaCJUlMVd2LLRFLK0kpmS9cphMJn6cG7csP0XQEtd3U-9H0Vj5yXfowU0ajRixJhz8nHQS8-v5KG_2pUyF5LYGYpzwcsOoqXxpuzYT6q9u_vw8WPJyeW0bss"
-            />
-            <div>
-              <h3 className="font-bold text-lg">Emma's Profile</h3>
-              <p className="text-blue-100 text-sm">Age: 4 years • Pre-K Level</p>
-            </div>
-            <button className="ml-auto bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white p-2 rounded-lg transition-colors">
-              <span className="material-symbols-outlined">edit</span>
-            </button>
-          </div>
-          <div className="absolute -right-6 -bottom-10 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
-          <div className="absolute -left-6 -top-10 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
         </section>
 
       </main>
@@ -198,21 +344,15 @@ export default function Insights() {
       <nav className="fixed bottom-0 w-full bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 py-2 flex justify-between items-center z-50">
         <button onClick={() => navigate('/')} className="flex flex-col items-center gap-1 group">
           <div className="p-1.5 rounded-xl group-hover:bg-slate-50 dark:group-hover:bg-slate-800 transition-colors">
-            <span className="material-symbols-outlined text-slate-400 group-hover:text-primary" style={{ fontVariationSettings: "'FILL' 0" }}>home</span>
+            <span className="material-symbols-outlined text-slate-400 group-hover:text-primary">home</span>
           </div>
           <span className="text-[10px] font-medium text-slate-400 group-hover:text-primary">Home</span>
         </button>
-        <button onClick={() => navigate('/game')} className="flex flex-col items-center gap-1 group">
+        <button onClick={() => navigate('/select')} className="flex flex-col items-center gap-1 group">
           <div className="p-1.5 rounded-xl group-hover:bg-slate-50 dark:group-hover:bg-slate-800 transition-colors">
-            <span className="material-symbols-outlined text-slate-400 group-hover:text-primary" style={{ fontVariationSettings: "'FILL' 0" }}>sports_esports</span>
+            <span className="material-symbols-outlined text-slate-400 group-hover:text-primary">switch_account</span>
           </div>
-          <span className="text-[10px] font-medium text-slate-400 group-hover:text-primary">Games</span>
-        </button>
-        <button className="flex flex-col items-center gap-1 group">
-          <div className="p-1.5 rounded-xl group-hover:bg-slate-50 dark:group-hover:bg-slate-800 transition-colors">
-            <span className="material-symbols-outlined text-slate-400 group-hover:text-primary" style={{ fontVariationSettings: "'FILL' 0" }}>school</span>
-          </div>
-          <span className="text-[10px] font-medium text-slate-400 group-hover:text-primary">Learn</span>
+          <span className="text-[10px] font-medium text-slate-400 group-hover:text-primary">Switch Child</span>
         </button>
         <button className="flex flex-col items-center gap-1 group">
           <div className="p-1.5 rounded-xl bg-primary/10 transition-colors">
@@ -222,6 +362,103 @@ export default function Insights() {
         </button>
       </nav>
 
+      {/* Change PIN: step 1 — verify current PIN */}
+      {showChangePinModal && (
+        <PinModal
+          title="Enter Current PIN"
+          onVerify={verifyCurrentPin}
+          onSuccess={onCurrentPinSuccess}
+          onClose={() => setShowChangePinModal(false)}
+        />
+      )}
+
+      {/* Change PIN: step 2 — enter new PIN */}
+      {showNewPinModal && (
+        <NewPinModal
+          onSuccess={onNewPinSuccess}
+          onClose={() => setShowNewPinModal(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+/**
+ * A variant of PinModal that sets a NEW pin (no verify call — just confirms twice).
+ */
+function NewPinModal({ onSuccess, onClose }) {
+  const [step, setStep] = useState('enter') // 'enter' | 'confirm'
+  const [firstPin, setFirstPin] = useState('')
+  const [digits, setDigits] = useState([])
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  function press(n) {
+    if (digits.length >= 4) return
+    setError('')
+    const next = [...digits, n]
+    setDigits(next)
+    if (next.length === 4) {
+      if (step === 'enter') {
+        setFirstPin(next.join(''))
+        setStep('confirm')
+        setDigits([])
+      } else {
+        // confirm step
+        if (next.join('') !== firstPin) {
+          setError("PINs don't match. Try again.")
+          setStep('enter')
+          setFirstPin('')
+          setDigits([])
+        } else {
+          setLoading(true)
+          api.setPin(next.join('')).then(() => {
+            onSuccess(next.join(''))
+          }).catch((err) => {
+            setError(err.message)
+            setStep('enter')
+            setFirstPin('')
+            setDigits([])
+          }).finally(() => setLoading(false))
+        }
+      }
+    }
+  }
+
+  function backspace() {
+    setError('')
+    setDigits((d) => d.slice(0, -1))
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-6">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs p-6 font-display">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-bold text-slate-800">
+            {step === 'enter' ? 'Enter New PIN' : 'Confirm New PIN'}
+          </h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+        <div className="flex justify-center gap-4 mb-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className={`w-4 h-4 rounded-full border-2 transition-all duration-150 ${i < digits.length ? 'bg-primary border-primary scale-110' : 'bg-transparent border-slate-300'}`} />
+          ))}
+        </div>
+        {error && <p className="text-red-500 text-sm text-center mb-3">{error}</p>}
+        {loading && <p className="text-slate-400 text-sm text-center mb-3">Saving…</p>}
+        <div className="grid grid-cols-3 gap-3">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+            <button key={n} onClick={() => press(String(n))} className="h-14 rounded-xl bg-slate-50 hover:bg-slate-100 active:scale-95 text-xl font-bold text-slate-800 transition-all border border-slate-100">{n}</button>
+          ))}
+          <div />
+          <button onClick={() => press('0')} className="h-14 rounded-xl bg-slate-50 hover:bg-slate-100 active:scale-95 text-xl font-bold text-slate-800 transition-all border border-slate-100">0</button>
+          <button onClick={backspace} className="h-14 rounded-xl bg-slate-50 hover:bg-slate-100 active:scale-95 text-slate-500 transition-all border border-slate-100 flex items-center justify-center">
+            <span className="material-symbols-outlined">backspace</span>
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

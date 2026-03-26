@@ -1,7 +1,38 @@
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+import { api } from '../api'
+import PinModal from './PinModal'
 
 export default function Home() {
   const navigate = useNavigate()
+  const { activeChild } = useAuth()
+
+  const [showPinModal, setShowPinModal] = useState(false)
+  const [screenTime, setScreenTime] = useState(null) // null = loading
+
+  useEffect(() => {
+    if (!activeChild) return
+    api.getScreenTime(activeChild.id)
+      .then(setScreenTime)
+      .catch(() => setScreenTime({ exceeded: false }))
+  }, [activeChild])
+
+  function handleLockClick() {
+    setShowPinModal(true)
+  }
+
+  async function verifyPin(pin) {
+    await api.verifyPin(pin)
+  }
+
+  function onPinSuccess() {
+    setShowPinModal(false)
+    navigate('/insights')
+  }
+
+  const exceeded = screenTime?.exceeded ?? false
+
   return (
     <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased selection:bg-primary selection:text-slate-900">
       <div className="relative flex h-full min-h-screen w-full flex-col overflow-hidden max-w-md mx-auto shadow-2xl bg-gradient-to-b from-sky-100 to-green-50 dark:from-slate-900 dark:to-emerald-950">
@@ -15,17 +46,15 @@ export default function Home() {
 
         {/* Top Bar */}
         <div className="relative z-10 flex items-center p-6 justify-between pt-12">
-          {/* User Profile */}
+          {/* Active child profile */}
           <div className="flex items-center gap-3 bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm p-2 pr-5 rounded-full shadow-sm border border-white/50 dark:border-slate-700">
-            <div className="w-12 h-12 rounded-full bg-accent-yellow border-2 border-white dark:border-slate-600 overflow-hidden flex items-center justify-center shrink-0">
-              <img
-                alt="Cute bear avatar"
-                className="w-full h-full object-cover"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuBVZdgIKTj3iefJfrMw2zFHsGR3sgcHB4X0ZFHD8vx9Vf6VAwWuIWNj31LAbok78YO-9FZ3lJxsErmggC85YR9veeTn9sZkLuWmdO2PYq-__GSlNW7o7Xlk6STUjSq4ov9gZZcpULAm-pWyf8DeIXKmf9zHWJ-wY9F90g0cIlKEYRIAXxHu8DamMOzV472ObtqkQiDGon-5R6V2nvGv-fBlAU79TAy8KUJNNs7UXFwlY3xA44ig1bGMVyp-ZKjU6P_Xhv2gIGwSbPc"
-              />
+            <div className="w-12 h-12 rounded-full bg-primary/20 border-2 border-white dark:border-slate-600 flex items-center justify-center text-2xl shrink-0">
+              {activeChild?.avatar ?? '🐻'}
             </div>
             <div className="flex flex-col">
-              <span className="text-sm font-bold text-slate-700 dark:text-slate-200">Hi, Leo!</span>
+              <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                Hi, {activeChild?.name ?? 'Friend'}!
+              </span>
               <div className="flex gap-1">
                 <span className="material-symbols-outlined text-accent-yellow text-[16px] fill-1">star</span>
                 <span className="material-symbols-outlined text-accent-yellow text-[16px] fill-1">star</span>
@@ -36,7 +65,7 @@ export default function Home() {
 
           {/* Parental Gate */}
           <button
-            onClick={() => navigate('/insights')}
+            onClick={handleLockClick}
             className="flex items-center justify-center w-12 h-12 bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm rounded-full shadow-sm border border-white/50 dark:border-slate-700 text-slate-400 hover:text-primary transition-colors active:scale-95"
           >
             <span className="material-symbols-outlined" style={{ fontSize: '24px' }}>lock</span>
@@ -67,44 +96,67 @@ export default function Home() {
             </div>
           </div>
 
+          {/* Screen time warning */}
+          {exceeded && (
+            <div className="mb-6 bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-start gap-3">
+              <span className="material-symbols-outlined text-orange-400 mt-0.5">timer_off</span>
+              <div>
+                <p className="font-bold text-orange-700 text-sm">Time's up for today!</p>
+                <p className="text-orange-600 text-xs mt-0.5">You've reached your screen time limit. Ask a parent to unlock more time.</p>
+              </div>
+            </div>
+          )}
+
           {/* Learning Categories Grid */}
           <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4 pl-1">Let's Play!</h3>
           <div className="grid grid-cols-2 gap-4 pb-6">
 
-            {/* Music / Notes Card */}
-            <button onClick={() => navigate('/game/notes')} className="flex flex-col items-center gap-3 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border-b-4 border-accent-purple active:border-b-0 active:translate-y-1 transition-all h-40 justify-center group">
-              <div className="w-16 h-16 bg-accent-purple/20 text-accent-purple rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300 text-4xl">
-                🎹
-              </div>
-              <span className="font-bold text-lg text-slate-700 dark:text-slate-200">Music</span>
-            </button>
+            <GameCard
+              emoji="🎹"
+              label="Music"
+              color="border-accent-purple"
+              bgColor="bg-accent-purple/20"
+              textColor="text-accent-purple"
+              onClick={() => navigate('/game/notes')}
+              disabled={exceeded}
+            />
 
-            {/* Whack-a-Mole Card */}
-            <button onClick={() => navigate('/game/whackamole')} className="flex flex-col items-center gap-3 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border-b-4 border-accent-red active:border-b-0 active:translate-y-1 transition-all h-40 justify-center group">
-              <div className="w-16 h-16 bg-accent-red/20 text-accent-red rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300 text-4xl">
-                🔨
-              </div>
-              <span className="font-bold text-lg text-slate-700 dark:text-slate-200">Whack!</span>
-            </button>
+            <GameCard
+              emoji="🔨"
+              label="Whack!"
+              color="border-accent-red"
+              bgColor="bg-accent-red/20"
+              textColor="text-accent-red"
+              onClick={() => navigate('/game/whackamole')}
+              disabled={exceeded}
+            />
 
-            {/* Animals Card */}
-            <button onClick={() => navigate('/game/animals')} className="flex flex-col items-center gap-3 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border-b-4 border-accent-blue active:border-b-0 active:translate-y-1 transition-all h-40 justify-center group">
-              <div className="w-16 h-16 bg-accent-blue/20 text-accent-blue rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300 text-4xl">
-                🐾
-              </div>
-              <span className="font-bold text-lg text-slate-700 dark:text-slate-200">Animals</span>
-            </button>
+            <GameCard
+              emoji="🐾"
+              label="Animals"
+              color="border-accent-blue"
+              bgColor="bg-accent-blue/20"
+              textColor="text-accent-blue"
+              onClick={() => navigate('/game/animals')}
+              disabled={exceeded}
+            />
 
-            {/* Numbers Card */}
-            <button onClick={() => navigate('/game/math')} className="flex flex-col items-center gap-3 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border-b-4 border-accent-yellow active:border-b-0 active:translate-y-1 transition-all h-40 justify-center group">
-              <div className="w-16 h-16 bg-accent-yellow/20 text-accent-yellow rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                <span className="material-symbols-outlined text-[40px]">calculate</span>
-              </div>
-              <span className="font-bold text-lg text-slate-700 dark:text-slate-200">Numbers</span>
-            </button>
+            <GameCard
+              icon="calculate"
+              label="Numbers"
+              color="border-accent-yellow"
+              bgColor="bg-accent-yellow/20"
+              textColor="text-accent-yellow"
+              onClick={() => navigate('/game/math')}
+              disabled={exceeded}
+            />
 
             {/* Puzzles Card (full width) */}
-            <button onClick={() => navigate('/game')} className="flex flex-col items-center gap-3 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border-b-4 border-primary active:border-b-0 active:translate-y-1 transition-all h-40 justify-center group col-span-2">
+            <button
+              onClick={() => !exceeded && navigate('/game')}
+              disabled={exceeded}
+              className={`flex flex-col items-center gap-3 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border-b-4 border-primary active:border-b-0 active:translate-y-1 transition-all h-40 justify-center group col-span-2 ${exceeded ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
               <div className="flex w-full items-center justify-between px-4">
                 <div className="w-16 h-16 bg-primary/20 text-green-600 dark:text-primary rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                   <span className="material-symbols-outlined text-[40px]">extension</span>
@@ -141,6 +193,31 @@ export default function Home() {
         </div>
 
       </div>
+
+      {/* PIN Modal */}
+      {showPinModal && (
+        <PinModal
+          title="Parent Access"
+          onVerify={verifyPin}
+          onSuccess={onPinSuccess}
+          onClose={() => setShowPinModal(false)}
+        />
+      )}
     </div>
+  )
+}
+
+function GameCard({ emoji, icon, label, color, bgColor, textColor, onClick, disabled }) {
+  return (
+    <button
+      onClick={() => !disabled && onClick()}
+      disabled={disabled}
+      className={`flex flex-col items-center gap-3 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border-b-4 ${color} active:border-b-0 active:translate-y-1 transition-all h-40 justify-center group ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+    >
+      <div className={`w-16 h-16 ${bgColor} ${textColor} rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300 text-4xl`}>
+        {emoji ?? <span className="material-symbols-outlined text-[40px]">{icon}</span>}
+      </div>
+      <span className="font-bold text-lg text-slate-700 dark:text-slate-200">{label}</span>
+    </button>
   )
 }

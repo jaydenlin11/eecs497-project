@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useGameSession } from '../hooks/useGameSession'
 
 const NOTES = [
   { name: 'C', frequency: 261.63 },
@@ -98,6 +99,7 @@ function ModeSelect({ onSelect }) {
 // ── GAME MODE (shared easy/hard) ───────────────────────────────────────────────
 
 function GameMode({ showPiano, onBack }) {
+  const navigate = useNavigate()
   const [targetNote, setTargetNote] = useState(() => pickNote())
   const [tries, setTries] = useState(3)
   const [feedback, setFeedback] = useState(null) // null | 'correct' | 'wrong' | 'reveal'
@@ -106,6 +108,9 @@ function GameMode({ showPiano, onBack }) {
   const [total, setTotal] = useState(0)
   const audioCtxRef = useRef(null)
   const timeoutRef = useRef(null)
+  const { setScore: setSessionScore } = useGameSession('notes')
+
+  useEffect(() => { setSessionScore(score) }, [score]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const playTarget = useCallback(() => {
     playTone(targetNote.frequency, audioCtxRef)
@@ -159,7 +164,9 @@ function GameMode({ showPiano, onBack }) {
         <div className="bg-white/70 backdrop-blur-sm px-4 py-1.5 rounded-full shadow-sm font-bold text-slate-700">
           ⭐ {score} / {total}
         </div>
-        <div className="w-10" />
+        <button onClick={() => navigate('/')} className="w-10 h-10 bg-white/70 rounded-full flex items-center justify-center shadow-sm">
+          <span className="material-symbols-outlined text-slate-500">home</span>
+        </button>
       </div>
 
       {/* Main content */}

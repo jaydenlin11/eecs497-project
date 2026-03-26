@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useGameSession } from '../hooks/useGameSession'
 
 const LEVELS = [
   {
@@ -128,6 +129,7 @@ function LevelSelect({ unlockedLevels, onSelect }) {
 // ── LEARN PHASE ────────────────────────────────────────────────────────────────
 
 function LearnPhase({ level, onDone, onBack }) {
+  const navigate = useNavigate()
   const [currentIdx, setCurrentIdx] = useState(0)
   const [showReady, setShowReady] = useState(false)
   const timeoutRef = useRef(null)
@@ -163,6 +165,9 @@ function LearnPhase({ level, onDone, onBack }) {
         <button onClick={onBack} className="text-slate-400 text-sm hover:text-slate-600 transition-colors">
           ← Back to levels
         </button>
+        <button onClick={() => navigate('/')} className="text-slate-400 text-sm hover:text-slate-600 transition-colors flex items-center gap-1">
+          <span className="material-symbols-outlined text-lg">home</span> Home
+        </button>
       </div>
     )
   }
@@ -190,6 +195,7 @@ function LearnPhase({ level, onDone, onBack }) {
 // ── GAME PHASE ─────────────────────────────────────────────────────────────────
 
 function GamePhase({ level, onDone }) {
+  const navigate = useNavigate()
   const [holes, setHoles] = useState(Array(9).fill(null))
   const [target, setTarget] = useState(() => level.items[Math.floor(Math.random() * level.items.length)])
   const [score, setScore] = useState(0)
@@ -203,6 +209,9 @@ function GamePhase({ level, onDone }) {
   const isDoneRef = useRef(false)
   const popIntervalRef = useRef(null)
   const hitEffectTimerRef = useRef(null)
+  const { setScore: setSessionScore } = useGameSession('whackamole')
+
+  useEffect(() => { setSessionScore(score) }, [score]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sync target ref
   useEffect(() => { targetRef.current = target }, [target])
@@ -299,6 +308,9 @@ function GamePhase({ level, onDone }) {
         <div className={`font-black text-2xl ${timerColor}`}>
           ⏱ {timeLeft}s
         </div>
+        <button onClick={() => navigate('/')} className="w-10 h-10 bg-white/70 rounded-full flex items-center justify-center shadow-sm">
+          <span className="material-symbols-outlined text-slate-500">home</span>
+        </button>
       </div>
 
       {/* Target */}
@@ -343,6 +355,7 @@ function GamePhase({ level, onDone }) {
 // ── RESULT PHASE ───────────────────────────────────────────────────────────────
 
 function ResultPhase({ level, score, onRetry, onNext, hasNext }) {
+  const navigate = useNavigate()
   const passed = score >= SCORE_TO_UNLOCK
   return (
     <div className="flex flex-col flex-1 items-center justify-center px-6 gap-6">
@@ -375,6 +388,12 @@ function ResultPhase({ level, score, onRetry, onNext, hasNext }) {
             Next Level! →
           </button>
         )}
+        <button
+          onClick={() => navigate('/')}
+          className="w-full bg-slate-100 text-slate-500 font-semibold text-base py-3 rounded-xl active:scale-95 transition-all flex items-center justify-center gap-2"
+        >
+          <span className="material-symbols-outlined text-lg">home</span> Back to Home
+        </button>
       </div>
     </div>
   )
