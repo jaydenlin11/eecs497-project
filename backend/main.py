@@ -5,7 +5,8 @@ from pydantic import BaseModel
 import bcrypt as _bcrypt
 from jose import JWTError, jwt
 from datetime import datetime, timedelta, timezone
-import sqlite3
+import psycopg2
+import psycopg2.extras
 import uuid
 import os
 from typing import Optional
@@ -15,7 +16,10 @@ SECRET_KEY = "kids-dashboard-secret-key-change-in-prod"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_DAYS = 30
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "data", "app.db")
+DATABASE_URL = os.environ.get(
+    "DATABASE_URL",
+    "postgresql://localhost/kids_dashboard"
+)
 
 bearer_scheme = HTTPBearer()
 
@@ -33,22 +37,27 @@ app.add_middleware(
 # ── Database ──────────────────────────────────────────────────────────────────
 
 def get_db():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = psycopg2.connect(DATABASE_URL)
     return conn
+
+
+def get_cursor(conn):
+    return conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
 
 def init_db():
     conn = get_db()
-    conn.executescript("""
+    cur = get_cursor(conn)
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS parents (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             email TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
             created_at TEXT NOT NULL
-        );
+        )
+    """)
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS children (
             id TEXT PRIMARY KEY,
             parent_id TEXT NOT NULL REFERENCES parents(id),
@@ -56,13 +65,17 @@ def init_db():
             age INTEGER NOT NULL,
             avatar TEXT NOT NULL,
             created_at TEXT NOT NULL
-        );
+        )
+    """)
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS settings (
             parent_id TEXT PRIMARY KEY REFERENCES parents(id),
             screen_time_limit INTEGER NOT NULL DEFAULT 60,
             audio_enabled INTEGER NOT NULL DEFAULT 1,
             pin_hash TEXT
-        );
+        )
+    """)
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS sessions (
             id TEXT PRIMARY KEY,
             child_id TEXT NOT NULL REFERENCES children(id),
@@ -70,9 +83,10 @@ def init_db():
             score INTEGER NOT NULL DEFAULT 0,
             duration_seconds INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL
-        );
+        )
     """)
     conn.commit()
+    cur.close()
     conn.close()
 
 
@@ -148,8 +162,10 @@ class SessionCreate(BaseModel):
 @app.post("/auth/register")
 def register(req: RegisterRequest):
     conn = get_db()
+    cur = get_cursor(conn)
     try:
-        existing = conn.execute("SELECT id FROM parents WHERE email = ?", (req.email,)).fetchone()
+        cur.execute("SELECT id FROM parents WHERE email = %s", (req.email,))
+        existing = cur.fetchone()
         if existing:
             raise HTTPException(status_code=400, detail="Email already registered")
 
@@ -157,17 +173,17 @@ def register(req: RegisterRequest):
         parent_id = str(uuid.uuid4())
         child_id = str(uuid.uuid4())
 
-        conn.execute(
-            "INSERT INTO parents (id, name, email, password_hash, created_at) VALUES (?, ?, ?, ?, ?)",
+        cur.execute(
+            "INSERT INTO parents (id, name, email, password_hash, created_at) VALUES (%s, %s, %s, %s, %s)",
             (parent_id, req.parent_name, req.email, hash_password(req.password), now),
         )
-        conn.execute(
-            "INSERT INTO children (id, parent_id, name, age, avatar, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        cur.execute(
+            "INSERT INTO children (id, parent_id, name, age, avatar, created_at) VALUES (%s, %s, %s, %s, %s, %s)",
             (child_id, parent_id, req.child_name, req.child_age, req.child_avatar, now),
         )
         # Default PIN is "0000"
-        conn.execute(
-            "INSERT INTO settings (parent_id, screen_time_limit, audio_enabled, pin_hash) VALUES (?, ?, ?, ?)",
+        cur.execute(
+            "INSERT INTO settings (parent_id, screen_time_limit, audio_enabled, pin_hash) VALUES (%s, %s, %s, %s)",
             (parent_id, 60, 1, hash_password("0000")),
         )
         conn.commit()
@@ -175,32 +191,39 @@ def register(req: RegisterRequest):
         token = create_token(parent_id)
         return {"token": token, "parent": {"id": parent_id, "name": req.parent_name, "email": req.email}}
     finally:
+        cur.close()
         conn.close()
 
 
 @app.post("/auth/login")
 def login(req: LoginRequest):
     conn = get_db()
+    cur = get_cursor(conn)
     try:
-        row = conn.execute("SELECT * FROM parents WHERE email = ?", (req.email,)).fetchone()
+        cur.execute("SELECT * FROM parents WHERE email = %s", (req.email,))
+        row = cur.fetchone()
         if not row or not verify_password(req.password, row["password_hash"]):
             raise HTTPException(status_code=401, detail="Invalid email or password")
 
         token = create_token(row["id"])
         return {"token": token, "parent": {"id": row["id"], "name": row["name"], "email": row["email"]}}
     finally:
+        cur.close()
         conn.close()
 
 
 @app.get("/auth/me")
 def get_me(parent_id: str = Depends(get_current_parent_id)):
     conn = get_db()
+    cur = get_cursor(conn)
     try:
-        row = conn.execute("SELECT id, name, email FROM parents WHERE id = ?", (parent_id,)).fetchone()
+        cur.execute("SELECT id, name, email FROM parents WHERE id = %s", (parent_id,))
+        row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Parent not found")
         return {"id": row["id"], "name": row["name"], "email": row["email"]}
     finally:
+        cur.close()
         conn.close()
 
 
@@ -209,36 +232,43 @@ def get_me(parent_id: str = Depends(get_current_parent_id)):
 @app.get("/children")
 def list_children(parent_id: str = Depends(get_current_parent_id)):
     conn = get_db()
+    cur = get_cursor(conn)
     try:
-        rows = conn.execute("SELECT * FROM children WHERE parent_id = ?", (parent_id,)).fetchall()
+        cur.execute("SELECT * FROM children WHERE parent_id = %s", (parent_id,))
+        rows = cur.fetchall()
         return [dict(r) for r in rows]
     finally:
+        cur.close()
         conn.close()
 
 
 @app.post("/children", status_code=201)
 def create_child(req: ChildCreate, parent_id: str = Depends(get_current_parent_id)):
     conn = get_db()
+    cur = get_cursor(conn)
     try:
         child_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc).isoformat()
-        conn.execute(
-            "INSERT INTO children (id, parent_id, name, age, avatar, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        cur.execute(
+            "INSERT INTO children (id, parent_id, name, age, avatar, created_at) VALUES (%s, %s, %s, %s, %s, %s)",
             (child_id, parent_id, req.name, req.age, req.avatar, now),
         )
         conn.commit()
         return {"id": child_id, "parent_id": parent_id, "name": req.name, "age": req.age, "avatar": req.avatar}
     finally:
+        cur.close()
         conn.close()
 
 
 @app.put("/children/{child_id}")
 def update_child(child_id: str, req: ChildUpdate, parent_id: str = Depends(get_current_parent_id)):
     conn = get_db()
+    cur = get_cursor(conn)
     try:
-        row = conn.execute(
-            "SELECT * FROM children WHERE id = ? AND parent_id = ?", (child_id, parent_id)
-        ).fetchone()
+        cur.execute(
+            "SELECT * FROM children WHERE id = %s AND parent_id = %s", (child_id, parent_id)
+        )
+        row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Child not found")
 
@@ -246,25 +276,29 @@ def update_child(child_id: str, req: ChildUpdate, parent_id: str = Depends(get_c
         age = req.age if req.age is not None else row["age"]
         avatar = req.avatar if req.avatar is not None else row["avatar"]
 
-        conn.execute("UPDATE children SET name=?, age=?, avatar=? WHERE id=?", (name, age, avatar, child_id))
+        cur.execute("UPDATE children SET name=%s, age=%s, avatar=%s WHERE id=%s", (name, age, avatar, child_id))
         conn.commit()
         return {"id": child_id, "parent_id": parent_id, "name": name, "age": age, "avatar": avatar}
     finally:
+        cur.close()
         conn.close()
 
 
 @app.delete("/children/{child_id}", status_code=204)
 def delete_child(child_id: str, parent_id: str = Depends(get_current_parent_id)):
     conn = get_db()
+    cur = get_cursor(conn)
     try:
-        row = conn.execute(
-            "SELECT id FROM children WHERE id = ? AND parent_id = ?", (child_id, parent_id)
-        ).fetchone()
+        cur.execute(
+            "SELECT id FROM children WHERE id = %s AND parent_id = %s", (child_id, parent_id)
+        )
+        row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Child not found")
-        conn.execute("DELETE FROM children WHERE id = ?", (child_id,))
+        cur.execute("DELETE FROM children WHERE id = %s", (child_id,))
         conn.commit()
     finally:
+        cur.close()
         conn.close()
 
 
@@ -273,8 +307,10 @@ def delete_child(child_id: str, parent_id: str = Depends(get_current_parent_id))
 @app.get("/settings")
 def get_settings(parent_id: str = Depends(get_current_parent_id)):
     conn = get_db()
+    cur = get_cursor(conn)
     try:
-        row = conn.execute("SELECT * FROM settings WHERE parent_id = ?", (parent_id,)).fetchone()
+        cur.execute("SELECT * FROM settings WHERE parent_id = %s", (parent_id,))
+        row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Settings not found")
         return {
@@ -283,41 +319,48 @@ def get_settings(parent_id: str = Depends(get_current_parent_id)):
             "has_pin": row["pin_hash"] is not None,
         }
     finally:
+        cur.close()
         conn.close()
 
 
 @app.put("/settings")
 def update_settings(req: UpdateSettingsRequest, parent_id: str = Depends(get_current_parent_id)):
     conn = get_db()
+    cur = get_cursor(conn)
     try:
-        row = conn.execute("SELECT * FROM settings WHERE parent_id = ?", (parent_id,)).fetchone()
+        cur.execute("SELECT * FROM settings WHERE parent_id = %s", (parent_id,))
+        row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Settings not found")
 
         limit = req.screen_time_limit if req.screen_time_limit is not None else row["screen_time_limit"]
         audio = (1 if req.audio_enabled else 0) if req.audio_enabled is not None else row["audio_enabled"]
 
-        conn.execute(
-            "UPDATE settings SET screen_time_limit=?, audio_enabled=? WHERE parent_id=?",
+        cur.execute(
+            "UPDATE settings SET screen_time_limit=%s, audio_enabled=%s WHERE parent_id=%s",
             (limit, audio, parent_id),
         )
         conn.commit()
         return {"screen_time_limit": limit, "audio_enabled": bool(audio), "has_pin": row["pin_hash"] is not None}
     finally:
+        cur.close()
         conn.close()
 
 
 @app.post("/settings/verify-pin")
 def verify_pin(req: VerifyPinRequest, parent_id: str = Depends(get_current_parent_id)):
     conn = get_db()
+    cur = get_cursor(conn)
     try:
-        row = conn.execute("SELECT pin_hash FROM settings WHERE parent_id = ?", (parent_id,)).fetchone()
+        cur.execute("SELECT pin_hash FROM settings WHERE parent_id = %s", (parent_id,))
+        row = cur.fetchone()
         if not row or not row["pin_hash"]:
             raise HTTPException(status_code=400, detail="No PIN set")
         if not verify_password(req.pin, row["pin_hash"]):
             raise HTTPException(status_code=401, detail="Incorrect PIN")
         return {"valid": True}
     finally:
+        cur.close()
         conn.close()
 
 
@@ -326,13 +369,15 @@ def set_pin(req: SetPinRequest, parent_id: str = Depends(get_current_parent_id))
     if len(req.pin) != 4 or not req.pin.isdigit():
         raise HTTPException(status_code=400, detail="PIN must be exactly 4 digits")
     conn = get_db()
+    cur = get_cursor(conn)
     try:
-        conn.execute(
-            "UPDATE settings SET pin_hash=? WHERE parent_id=?", (hash_password(req.pin), parent_id)
+        cur.execute(
+            "UPDATE settings SET pin_hash=%s WHERE parent_id=%s", (hash_password(req.pin), parent_id)
         )
         conn.commit()
         return {"success": True}
     finally:
+        cur.close()
         conn.close()
 
 
@@ -341,22 +386,25 @@ def set_pin(req: SetPinRequest, parent_id: str = Depends(get_current_parent_id))
 @app.post("/sessions", status_code=201)
 def create_session(req: SessionCreate, parent_id: str = Depends(get_current_parent_id)):
     conn = get_db()
+    cur = get_cursor(conn)
     try:
-        row = conn.execute(
-            "SELECT id FROM children WHERE id = ? AND parent_id = ?", (req.child_id, parent_id)
-        ).fetchone()
+        cur.execute(
+            "SELECT id FROM children WHERE id = %s AND parent_id = %s", (req.child_id, parent_id)
+        )
+        row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Child not found")
 
         session_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc).isoformat()
-        conn.execute(
-            "INSERT INTO sessions (id, child_id, game, score, duration_seconds, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        cur.execute(
+            "INSERT INTO sessions (id, child_id, game, score, duration_seconds, created_at) VALUES (%s, %s, %s, %s, %s, %s)",
             (session_id, req.child_id, req.game, req.score, req.duration_seconds, now),
         )
         conn.commit()
         return {"id": session_id}
     finally:
+        cur.close()
         conn.close()
 
 
@@ -365,17 +413,19 @@ def create_session(req: SessionCreate, parent_id: str = Depends(get_current_pare
 @app.get("/insights/{child_id}")
 def get_insights(child_id: str, parent_id: str = Depends(get_current_parent_id)):
     conn = get_db()
+    cur = get_cursor(conn)
     try:
-        child = conn.execute(
-            "SELECT * FROM children WHERE id = ? AND parent_id = ?", (child_id, parent_id)
-        ).fetchone()
+        cur.execute(
+            "SELECT * FROM children WHERE id = %s AND parent_id = %s", (child_id, parent_id)
+        )
+        child = cur.fetchone()
         if not child:
             raise HTTPException(status_code=404, detail="Child not found")
 
-        sessions = conn.execute(
-            "SELECT * FROM sessions WHERE child_id = ? ORDER BY created_at DESC", (child_id,)
-        ).fetchall()
-        sessions = [dict(s) for s in sessions]
+        cur.execute(
+            "SELECT * FROM sessions WHERE child_id = %s ORDER BY created_at DESC", (child_id,)
+        )
+        sessions = [dict(s) for s in cur.fetchall()]
 
         # Aggregate by game
         game_stats: dict = {}
@@ -406,6 +456,7 @@ def get_insights(child_id: str, parent_id: str = Depends(get_current_parent_id))
             "recent_sessions": sessions[:10],
         }
     finally:
+        cur.close()
         conn.close()
 
 
@@ -414,23 +465,27 @@ def get_insights(child_id: str, parent_id: str = Depends(get_current_parent_id))
 @app.get("/screen-time/{child_id}")
 def get_screen_time(child_id: str, parent_id: str = Depends(get_current_parent_id)):
     conn = get_db()
+    cur = get_cursor(conn)
     try:
-        child = conn.execute(
-            "SELECT id FROM children WHERE id = ? AND parent_id = ?", (child_id, parent_id)
-        ).fetchone()
+        cur.execute(
+            "SELECT id FROM children WHERE id = %s AND parent_id = %s", (child_id, parent_id)
+        )
+        child = cur.fetchone()
         if not child:
             raise HTTPException(status_code=404, detail="Child not found")
 
-        settings_row = conn.execute(
-            "SELECT screen_time_limit FROM settings WHERE parent_id = ?", (parent_id,)
-        ).fetchone()
+        cur.execute(
+            "SELECT screen_time_limit FROM settings WHERE parent_id = %s", (parent_id,)
+        )
+        settings_row = cur.fetchone()
         limit_minutes = settings_row["screen_time_limit"] if settings_row else 60
 
         today = datetime.now(timezone.utc).date().isoformat()
-        row = conn.execute(
-            "SELECT SUM(duration_seconds) as total FROM sessions WHERE child_id = ? AND created_at LIKE ?",
+        cur.execute(
+            "SELECT SUM(duration_seconds) as total FROM sessions WHERE child_id = %s AND created_at LIKE %s",
             (child_id, f"{today}%"),
-        ).fetchone()
+        )
+        row = cur.fetchone()
         used_seconds = row["total"] or 0
         used_minutes = used_seconds / 60
 
@@ -442,6 +497,7 @@ def get_screen_time(child_id: str, parent_id: str = Depends(get_current_parent_i
             "exceeded": used_minutes >= limit_minutes,
         }
     finally:
+        cur.close()
         conn.close()
 
 
