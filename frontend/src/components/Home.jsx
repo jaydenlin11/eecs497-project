@@ -145,6 +145,21 @@ export default function Home() {
         </div>
       </main>
 
+      <footer className="mt-20 pb-8 px-4 text-center">
+        <div className="max-w-lg mx-auto">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <span className="material-symbols-outlined text-primary text-xl">rocket_launch</span>
+            <span className="text-base font-black tracking-tight text-slate-700 dark:text-slate-300">KidsLearn</span>
+          </div>
+          <p className="text-xs text-slate-400 dark:text-slate-500">
+            Made with care for curious kids &mdash; learn, play, and grow every day.
+          </p>
+          <p className="text-[10px] text-slate-300 dark:text-slate-600 mt-2">
+            &copy; {new Date().getFullYear()} KidsLearn
+          </p>
+        </div>
+      </footer>
+
       {/* PIN Modal */}
       {showPinModal && (
         <PinModal
