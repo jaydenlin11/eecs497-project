@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGameSession } from '../hooks/useGameSession'
+import { useAuth } from '../context/AuthContext'
 
 const LEVELS = [
   {
@@ -72,56 +73,62 @@ const LEVELS = [
 
 const GAME_DURATION = 30
 const SCORE_TO_UNLOCK = 5
-const MOLE_VISIBLE_MS = 1800
-const POP_INTERVAL_MS = 900
+const MOLE_VISIBLE_MS = 1600
+const POP_INTERVAL_MS = 600
 
 // ── LEVEL SELECT ───────────────────────────────────────────────────────────────
 
 function LevelSelect({ unlockedLevels, onSelect }) {
   const navigate = useNavigate()
   return (
-    <div className="flex flex-col flex-1 px-6 pt-10 pb-6">
-      <div className="flex items-center gap-3 mb-2">
+    <div className="flex flex-col flex-1">
+      {/* Header */}
+      <header className="sticky top-0 z-20 flex items-center justify-between px-8 py-4 bg-white/70 backdrop-blur-md border-b border-white/50 shadow-sm">
         <button
           onClick={() => navigate('/')}
-          className="w-10 h-10 bg-white/70 rounded-full flex items-center justify-center shadow-sm shrink-0"
+          className="flex items-center gap-2 px-4 py-2 bg-white/80 rounded-full shadow-sm hover:bg-white transition-colors"
         >
           <span className="material-symbols-outlined text-slate-500">arrow_back</span>
+          <span className="text-sm font-semibold text-slate-600 hidden sm:inline">Home</span>
         </button>
-        <h1 className="text-2xl font-black text-slate-800">Whack-a-Mole!</h1>
-      </div>
+        <h1 className="text-xl font-black text-slate-800">Whack-a-Mole!</h1>
+        <div className="w-24" />
+      </header>
 
-      <p className="text-slate-500 mb-4 pl-1">Choose a level:</p>
-
-      <div className="flex flex-col gap-3 overflow-y-auto">
-        {LEVELS.map(level => {
-          const unlocked = unlockedLevels.includes(level.id)
-          return (
-            <button
-              key={level.id}
-              onClick={() => unlocked && onSelect(level)}
-              disabled={!unlocked}
-              className={`
-                flex items-center gap-4 rounded-xl p-4 shadow-sm border-b-4 transition-all text-left
-                ${unlocked
-                  ? 'bg-white active:border-b-0 active:translate-y-1 border-slate-200 hover:shadow-md'
-                  : 'bg-slate-100 border-slate-100 opacity-60 cursor-not-allowed'}
-              `}
-            >
-              <div className={`w-14 h-14 ${level.color} rounded-full flex items-center justify-center text-3xl shrink-0`}>
-                {level.emoji}
-              </div>
-              <div className="flex-1">
-                <div className="font-bold text-slate-700">Level {level.id}: {level.name}</div>
-                <div className="text-sm text-slate-500">{level.items.length} things to learn</div>
-              </div>
-              <span className="material-symbols-outlined text-slate-400 text-2xl">
-                {unlocked ? 'play_arrow' : 'lock'}
-              </span>
-            </button>
-          )
-        })}
-      </div>
+      <main className="flex-1 px-8 py-8">
+        <div className="max-w-4xl mx-auto">
+          <p className="text-slate-500 mb-6 text-lg font-medium">Choose a level:</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {LEVELS.map(level => {
+              const unlocked = unlockedLevels.includes(level.id)
+              return (
+                <button
+                  key={level.id}
+                  onClick={() => unlocked && onSelect(level)}
+                  disabled={!unlocked}
+                  className={`
+                    flex items-center gap-4 rounded-2xl p-5 shadow-sm border-b-4 transition-all text-left
+                    ${unlocked
+                      ? 'bg-white active:border-b-0 active:translate-y-1 border-slate-200 hover:shadow-md'
+                      : 'bg-slate-100 border-slate-100 opacity-60 cursor-not-allowed'}
+                  `}
+                >
+                  <div className={`w-16 h-16 ${level.color} rounded-full flex items-center justify-center text-4xl shrink-0`}>
+                    {level.emoji}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-bold text-slate-700 text-lg">Level {level.id}: {level.name}</div>
+                    <div className="text-sm text-slate-500">{level.items.length} things to learn</div>
+                  </div>
+                  <span className="material-symbols-outlined text-slate-400 text-2xl">
+                    {unlocked ? 'play_arrow' : 'lock'}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </main>
     </div>
   )
 }
@@ -145,47 +152,49 @@ function LearnPhase({ level, onDone, onBack }) {
 
   if (showReady) {
     return (
-      <div className="flex flex-col flex-1 items-center justify-center px-6 gap-6">
-        <div className="text-5xl">🧠</div>
-        <h2 className="text-2xl font-black text-slate-800 text-center">Remember these?</h2>
-        <div className="flex justify-center gap-4 flex-wrap w-full max-w-xs">
+      <div className="flex flex-col flex-1 items-center justify-center px-6 py-12 gap-8">
+        <div className="text-7xl">🧠</div>
+        <h2 className="text-3xl font-black text-slate-800 text-center">Remember these?</h2>
+        <div className="flex justify-center gap-8 flex-wrap w-full max-w-2xl">
           {level.items.map(item => (
-            <div key={item.name} className="flex flex-col items-center gap-1">
-              <div className="text-4xl">{item.emoji}</div>
-              <div className="text-xs font-bold text-slate-600">{item.name}</div>
+            <div key={item.name} className="flex flex-col items-center gap-2 bg-white rounded-2xl shadow-md px-6 py-4">
+              <div className="text-6xl">{item.emoji}</div>
+              <div className="text-sm font-bold text-slate-600">{item.name}</div>
             </div>
           ))}
         </div>
         <button
           onClick={onDone}
-          className="bg-primary text-slate-900 font-black text-xl px-10 py-4 rounded-2xl shadow-lg border-b-4 border-green-600 active:border-b-0 active:translate-y-1 transition-all hover:scale-105"
+          className="bg-primary text-slate-900 font-black text-xl px-14 py-4 rounded-2xl shadow-lg border-b-4 border-green-600 hover:shadow-xl active:border-b-0 active:translate-y-1 transition-all hover:scale-105"
         >
           Let's Go! 🎯
         </button>
-        <button onClick={onBack} className="text-slate-400 text-sm hover:text-slate-600 transition-colors">
-          ← Back to levels
-        </button>
-        <button onClick={() => navigate('/')} className="text-slate-400 text-sm hover:text-slate-600 transition-colors flex items-center gap-1">
-          <span className="material-symbols-outlined text-lg">home</span> Home
-        </button>
+        <div className="flex gap-4">
+          <button onClick={onBack} className="text-slate-400 text-sm hover:text-slate-600 transition-colors">
+            ← Back to levels
+          </button>
+          <button onClick={() => navigate('/')} className="text-slate-400 text-sm hover:text-slate-600 transition-colors flex items-center gap-1">
+            <span className="material-symbols-outlined text-lg">home</span> Home
+          </button>
+        </div>
       </div>
     )
   }
 
   const item = level.items[currentIdx]
   return (
-    <div className="flex flex-col flex-1 items-center justify-center px-6 gap-6">
+    <div className="flex flex-col flex-1 items-center justify-center px-6 gap-8">
       <div className="text-slate-500 font-medium uppercase tracking-wider text-sm">Get ready!</div>
-      <div className="w-44 h-44 rounded-3xl bg-white shadow-xl flex items-center justify-center">
-        <span className="text-8xl">{item.emoji}</span>
+      <div className="w-56 h-56 rounded-3xl bg-white shadow-xl flex items-center justify-center">
+        <span className="text-[100px]">{item.emoji}</span>
       </div>
       <div className="text-center">
         <div className="text-slate-500 text-lg">This is a</div>
-        <div className="text-4xl font-black text-slate-800">{item.name}!</div>
+        <div className="text-5xl font-black text-slate-800">{item.name}!</div>
       </div>
-      <div className="flex gap-2 mt-2">
+      <div className="flex gap-3 mt-2">
         {level.items.map((_, i) => (
-          <div key={i} className={`w-2.5 h-2.5 rounded-full transition-colors ${i <= currentIdx ? 'bg-primary' : 'bg-slate-200'}`} />
+          <div key={i} className={`w-3 h-3 rounded-full transition-colors ${i <= currentIdx ? 'bg-primary' : 'bg-slate-200'}`} />
         ))}
       </div>
     </div>
@@ -230,7 +239,9 @@ function GamePhase({ level, onDone }) {
     if (empty.length === 0) return
 
     const idx = empty[Math.floor(Math.random() * empty.length)]
-    const item = level.items[Math.floor(Math.random() * level.items.length)]
+    const item = Math.random() < 0.35
+      ? targetRef.current
+      : level.items[Math.floor(Math.random() * level.items.length)]
 
     holesRef.current = holesRef.current.map((h, i) => i === idx ? item : h)
     setHoles([...holesRef.current])
@@ -284,7 +295,9 @@ function GamePhase({ level, onDone }) {
       setHitEffect({ idx, type: 'correct' })
 
       const others = level.items.filter(i => i.name !== targetRef.current.name)
-      const newTarget = others[Math.floor(Math.random() * others.length)]
+      const newTarget = Math.random() < 0.2
+        ? targetRef.current
+        : others[Math.floor(Math.random() * others.length)]
       targetRef.current = newTarget
       setTarget(newTarget)
     } else {
@@ -301,53 +314,60 @@ function GamePhase({ level, onDone }) {
   return (
     <div className="flex flex-col flex-1">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 pt-10 pb-2">
-        <div className="bg-white/70 backdrop-blur-sm px-4 py-1.5 rounded-full shadow-sm font-bold text-slate-700">
+      <header className="sticky top-0 z-20 flex items-center justify-between px-8 py-4 bg-white/70 backdrop-blur-md border-b border-white/50 shadow-sm">
+        <div className="bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm font-bold text-slate-700">
           ⭐ {score}
         </div>
         <div className={`font-black text-2xl ${timerColor}`}>
           ⏱ {timeLeft}s
         </div>
-        <button onClick={() => navigate('/')} className="w-10 h-10 bg-white/70 rounded-full flex items-center justify-center shadow-sm">
+        <button onClick={() => navigate('/')} className="flex items-center gap-2 px-4 py-2 bg-white/80 rounded-full shadow-sm hover:bg-white transition-colors">
           <span className="material-symbols-outlined text-slate-500">home</span>
+          <span className="text-sm font-semibold text-slate-600 hidden sm:inline">Home</span>
         </button>
-      </div>
+      </header>
 
-      {/* Target */}
-      <div className="px-6 py-3 text-center">
-        <p className="text-slate-500 text-sm font-medium uppercase tracking-wider mb-1">Hit the</p>
-        <div className="inline-flex items-center gap-2 bg-white rounded-2xl shadow-md px-6 py-3">
-          <span className="text-3xl">{target.emoji}</span>
-          <span className="text-3xl font-black text-slate-800">{target.name}</span>
-        </div>
-      </div>
+      {/* Game content — target on left, grid on right */}
+      <main className="flex-1 flex items-center justify-center px-8 py-6">
+        <div className="w-full max-w-5xl flex flex-col lg:flex-row items-center gap-8">
 
-      {/* Mole grid */}
-      <div className="flex-1 px-5 pb-6 flex items-center">
-        <div className="grid grid-cols-3 gap-3 w-full">
-          {holes.map((item, idx) => {
-            const effect = hitEffect?.idx === idx ? hitEffect.type : null
-            return (
-              <button
-                key={idx}
-                onClick={() => item && handleHit(idx)}
-                className={`
-                  aspect-square rounded-2xl flex items-center justify-center
-                  transition-all duration-150
-                  ${effect === 'correct' ? 'bg-primary/40 border-4 border-primary scale-110' :
-                    effect === 'wrong' ? 'bg-red-200 border-4 border-red-400 scale-90' :
-                    item ? 'bg-amber-100 border-4 border-amber-300 cursor-pointer hover:scale-105 active:scale-95 shadow-md' :
-                    'bg-amber-900/15 border-4 border-amber-900/10 cursor-default'}
-                `}
-              >
-                {item && (
-                  <span className="text-5xl select-none">{item.emoji}</span>
-                )}
-              </button>
-            )
-          })}
+          {/* Target info */}
+          <div className="flex flex-col items-center gap-4 shrink-0">
+            <p className="text-slate-500 text-sm font-medium uppercase tracking-wider">Hit the</p>
+            <div className="flex flex-col items-center gap-3 bg-white rounded-2xl shadow-lg px-8 py-6">
+              <span className="text-7xl">{target.emoji}</span>
+              <span className="text-3xl font-black text-slate-800">{target.name}</span>
+            </div>
+          </div>
+
+          {/* Mole grid */}
+          <div className="flex-1 w-full">
+            <div className="grid grid-cols-3 gap-4 w-full max-w-2xl mx-auto">
+              {holes.map((item, idx) => {
+                const effect = hitEffect?.idx === idx ? hitEffect.type : null
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => item && handleHit(idx)}
+                    className={`
+                      aspect-square rounded-2xl flex items-center justify-center
+                      transition-all duration-150
+                      ${effect === 'correct' ? 'bg-primary/40 border-4 border-primary scale-110' :
+                        effect === 'wrong' ? 'bg-red-200 border-4 border-red-400 scale-90' :
+                        item ? 'bg-amber-100 border-4 border-amber-300 cursor-pointer hover:scale-105 active:scale-95 shadow-md' :
+                        'bg-amber-900/15 border-4 border-amber-900/10 cursor-default'}
+                    `}
+                  >
+                    {item && (
+                      <span className="text-6xl select-none">{item.emoji}</span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   )
 }
@@ -358,41 +378,41 @@ function ResultPhase({ level, score, onRetry, onNext, hasNext }) {
   const navigate = useNavigate()
   const passed = score >= SCORE_TO_UNLOCK
   return (
-    <div className="flex flex-col flex-1 items-center justify-center px-6 gap-6">
-      <div className="text-7xl">{passed ? '🏆' : '⭐'}</div>
-      <h2 className="text-3xl font-black text-slate-800 text-center">
+    <div className="flex flex-col flex-1 items-center justify-center px-6 py-12 gap-6">
+      <div className="text-8xl">{passed ? '🏆' : '⭐'}</div>
+      <h2 className="text-4xl font-black text-slate-800 text-center">
         {passed ? 'Amazing!' : 'Good try!'}
       </h2>
-      <div className="bg-white rounded-2xl shadow-lg px-8 py-5 text-center">
+      <div className="bg-white rounded-2xl shadow-lg px-12 py-8 text-center">
         <div className="text-slate-500 text-sm mb-1">Your score</div>
-        <div className="text-6xl font-black text-primary">{score}</div>
-        <div className="text-slate-500 text-sm mt-1">
+        <div className="text-7xl font-black text-primary">{score}</div>
+        <div className="text-slate-500 mt-2">
           {passed
             ? `${SCORE_TO_UNLOCK}+ hits to pass ✓`
             : `Need ${SCORE_TO_UNLOCK} hits to unlock next level`}
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 w-full max-w-xs">
+      <div className="flex flex-col sm:flex-row gap-3 w-full max-w-lg">
         <button
           onClick={onRetry}
-          className="w-full bg-white text-slate-700 font-bold text-lg py-4 rounded-xl border-b-4 border-slate-200 active:border-b-0 active:translate-y-1 transition-all shadow-sm"
+          className="flex-1 bg-white text-slate-700 font-bold text-lg py-4 rounded-xl border-b-4 border-slate-200 hover:shadow-md active:border-b-0 active:translate-y-1 transition-all shadow-sm"
         >
           🔄 Try Again
         </button>
         {passed && hasNext && (
           <button
             onClick={onNext}
-            className="w-full bg-primary text-slate-900 font-black text-lg py-4 rounded-xl border-b-4 border-green-600 active:border-b-0 active:translate-y-1 transition-all shadow-lg"
+            className="flex-1 bg-primary text-slate-900 font-black text-lg py-4 rounded-xl border-b-4 border-green-600 hover:shadow-lg active:border-b-0 active:translate-y-1 transition-all shadow-lg"
           >
             Next Level! →
           </button>
         )}
         <button
           onClick={() => navigate('/')}
-          className="w-full bg-slate-100 text-slate-500 font-semibold text-base py-3 rounded-xl active:scale-95 transition-all flex items-center justify-center gap-2"
+          className="flex-1 bg-slate-100 text-slate-500 font-semibold text-base py-4 rounded-xl active:scale-95 transition-all flex items-center justify-center gap-2"
         >
-          <span className="material-symbols-outlined text-lg">home</span> Back to Home
+          <span className="material-symbols-outlined text-lg">home</span> Home
         </button>
       </div>
     </div>
@@ -402,14 +422,20 @@ function ResultPhase({ level, score, onRetry, onNext, hasNext }) {
 // ── ROOT ───────────────────────────────────────────────────────────────────────
 
 export default function WhackaMoleGame() {
-  const [unlockedLevels, setUnlockedLevels] = useState(() => {
+  const { parent, activeChild } = useAuth()
+  const storageKey = `whackamole_unlocked_${parent?.id ?? 'anon'}_${activeChild?.id ?? 'none'}`
+
+  const [unlockedLevels, setUnlockedLevels] = useState([1])
+
+  // Load per-child progress once we know who is logged in
+  useEffect(() => {
     try {
-      const stored = localStorage.getItem('whackamole_unlocked')
-      return stored ? JSON.parse(stored) : [1]
+      const stored = localStorage.getItem(storageKey)
+      setUnlockedLevels(stored ? JSON.parse(stored) : [1])
     } catch {
-      return [1]
+      setUnlockedLevels([1])
     }
-  })
+  }, [storageKey])
   const [selectedLevel, setSelectedLevel] = useState(null)
   const [phase, setPhase] = useState('select') // 'select' | 'learn' | 'play' | 'result'
   const [finalScore, setFinalScore] = useState(0)
@@ -426,7 +452,7 @@ export default function WhackaMoleGame() {
       if (nextId <= LEVELS.length && !unlockedLevels.includes(nextId)) {
         const newUnlocked = [...unlockedLevels, nextId]
         setUnlockedLevels(newUnlocked)
-        localStorage.setItem('whackamole_unlocked', JSON.stringify(newUnlocked))
+        localStorage.setItem(storageKey, JSON.stringify(newUnlocked))
       }
     }
     setPhase('result')
@@ -437,44 +463,42 @@ export default function WhackaMoleGame() {
     unlockedLevels.includes(selectedLevel.id + 1)
 
   return (
-    <div className="bg-gradient-to-b from-amber-100 to-green-50 font-display text-slate-900 antialiased">
-      <div className="relative flex h-full min-h-screen w-full flex-col overflow-hidden max-w-md mx-auto shadow-2xl">
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-          <div className="absolute top-20 -left-10 w-32 h-32 bg-white/40 rounded-full blur-xl" />
-          <div className="absolute top-40 -right-10 w-48 h-48 bg-amber-300/20 rounded-full blur-2xl" />
-        </div>
+    <div className="bg-gradient-to-br from-amber-100 to-green-50 min-h-screen flex flex-col font-display text-slate-900 antialiased">
+      <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-20 left-20 w-64 h-64 bg-white/40 rounded-full blur-3xl" />
+        <div className="absolute bottom-20 right-20 w-80 h-80 bg-amber-300/20 rounded-full blur-3xl" />
+      </div>
 
-        <div className="relative z-10 flex flex-col flex-1">
-          {phase === 'select' && (
-            <LevelSelect unlockedLevels={unlockedLevels} onSelect={handleLevelSelect} />
-          )}
-          {phase === 'learn' && selectedLevel && (
-            <LearnPhase
-              level={selectedLevel}
-              onDone={() => setPhase('play')}
-              onBack={() => setPhase('select')}
-            />
-          )}
-          {phase === 'play' && selectedLevel && (
-            <GamePhase
-              key={`${selectedLevel.id}-${Date.now()}`}
-              level={selectedLevel}
-              onDone={handleGameDone}
-            />
-          )}
-          {phase === 'result' && selectedLevel && (
-            <ResultPhase
-              level={selectedLevel}
-              score={finalScore}
-              onRetry={() => setPhase('learn')}
-              onNext={() => {
-                const next = LEVELS.find(l => l.id === selectedLevel.id + 1)
-                if (next) { setSelectedLevel(next); setPhase('learn') }
-              }}
-              hasNext={hasNextLevel}
-            />
-          )}
-        </div>
+      <div className="relative z-10 flex flex-col flex-1">
+        {phase === 'select' && (
+          <LevelSelect unlockedLevels={unlockedLevels} onSelect={handleLevelSelect} />
+        )}
+        {phase === 'learn' && selectedLevel && (
+          <LearnPhase
+            level={selectedLevel}
+            onDone={() => setPhase('play')}
+            onBack={() => setPhase('select')}
+          />
+        )}
+        {phase === 'play' && selectedLevel && (
+          <GamePhase
+            key={`${selectedLevel.id}-${Date.now()}`}
+            level={selectedLevel}
+            onDone={handleGameDone}
+          />
+        )}
+        {phase === 'result' && selectedLevel && (
+          <ResultPhase
+            level={selectedLevel}
+            score={finalScore}
+            onRetry={() => setPhase('learn')}
+            onNext={() => {
+              const next = LEVELS.find(l => l.id === selectedLevel.id + 1)
+              if (next) { setSelectedLevel(next); setPhase('learn') }
+            }}
+            hasNext={hasNextLevel}
+          />
+        )}
       </div>
     </div>
   )

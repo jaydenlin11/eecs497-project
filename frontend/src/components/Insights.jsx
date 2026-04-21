@@ -24,13 +24,12 @@ function fmtDuration(seconds) {
 
 export default function Insights() {
   const navigate = useNavigate()
-  const { parent, childProfiles, logout } = useAuth()
+  const { parent, childProfiles, refreshChildren, logout } = useAuth()
 
   const [selectedChildId, setSelectedChildId] = useState(childProfiles[0]?.id ?? null)
   const [insights, setInsights] = useState(null)
-  const [settings, setSettings] = useState(null)
   const [loadingInsights, setLoadingInsights] = useState(false)
-  const [screenTimeLimit, setScreenTimeLimit] = useState(60)
+  const [screenTimeLimit, setScreenTimeLimit] = useState(childProfiles[0]?.screen_time_limit ?? 60)
   const [savingLimit, setSavingLimit] = useState(false)
   const [audioEnabled, setAudioEnabled] = useState(true)
 
@@ -39,14 +38,18 @@ export default function Insights() {
   const [showNewPinModal, setShowNewPinModal] = useState(false)
   const [pinSuccessMsg, setPinSuccessMsg] = useState('')
 
-  // Load settings once
+  // Load global settings (audio, pin) once
   useEffect(() => {
     api.getSettings().then((s) => {
-      setSettings(s)
-      setScreenTimeLimit(s.screen_time_limit)
       setAudioEnabled(s.audio_enabled)
     }).catch(() => {})
   }, [])
+
+  // When selected child changes, sync the screen time slider to that child's limit
+  useEffect(() => {
+    const child = childProfiles.find((c) => c.id === selectedChildId)
+    if (child?.screen_time_limit != null) setScreenTimeLimit(child.screen_time_limit)
+  }, [selectedChildId, childProfiles])
 
   // Load insights when selected child changes
   useEffect(() => {
@@ -61,8 +64,9 @@ export default function Insights() {
   async function saveScreenTimeLimit(val) {
     setSavingLimit(true)
     try {
-      await api.updateSettings({ screen_time_limit: val })
+      await api.updateChild(selectedChildId, { screen_time_limit: val })
       setScreenTimeLimit(val)
+      await refreshChildren()
     } finally {
       setSavingLimit(false)
     }
@@ -100,29 +104,48 @@ export default function Insights() {
     <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display min-h-screen flex flex-col antialiased">
 
       {/* Header */}
-      <header className="flex items-center justify-between p-6 bg-white dark:bg-slate-900 sticky top-0 z-10 border-b border-slate-100 dark:border-slate-800 shadow-sm">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/')}
-            className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 transition-colors"
-          >
-            <span className="material-symbols-outlined">arrow_back</span>
-          </button>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Parent Dashboard</h1>
-            {parent && <p className="text-xs text-slate-500">Hi, {parent.name}!</p>}
+      <header className="flex items-center justify-between px-8 py-4 bg-white dark:bg-slate-900 sticky top-0 z-10 border-b border-slate-100 dark:border-slate-800 shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 mr-4">
+            <span className="text-xl">🌳</span>
+            <span className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight">KidsLearn</span>
           </div>
+          <nav className="hidden md:flex items-center gap-1">
+            <button
+              onClick={() => navigate('/')}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-sm font-medium"
+            >
+              <span className="material-symbols-outlined text-lg">home</span>
+              Home
+            </button>
+            <button
+              onClick={() => navigate('/select')}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-sm font-medium"
+            >
+              <span className="material-symbols-outlined text-lg">switch_account</span>
+              Switch Child
+            </button>
+            <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 text-primary text-sm font-semibold">
+              <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>supervisor_account</span>
+              Parents
+            </button>
+          </nav>
         </div>
-        <button
-          onClick={logout}
-          className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-800 text-slate-500 hover:bg-slate-100 transition-colors"
-          title="Sign out"
-        >
-          <span className="material-symbols-outlined text-lg">logout</span>
-        </button>
+        <div className="flex items-center gap-3">
+          {parent && <span className="text-sm text-slate-500 hidden sm:inline">Hi, {parent.name}!</span>}
+          <button
+            onClick={logout}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-sm font-medium"
+            title="Sign out"
+          >
+            <span className="material-symbols-outlined text-lg">logout</span>
+            <span className="hidden sm:inline">Sign out</span>
+          </button>
+        </div>
       </header>
 
-      <main className="flex-1 px-4 py-6 flex flex-col gap-6 overflow-y-auto pb-24">
+      <main className="flex-1 px-8 py-8 overflow-y-auto">
+        <div className="max-w-6xl mx-auto flex flex-col gap-6">
 
         {/* Child selector */}
         {childProfiles.length > 1 && (
@@ -160,6 +183,9 @@ export default function Insights() {
             <div className="absolute -left-6 -top-10 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
           </section>
         )}
+
+        {/* Two-column grid for content cards */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
 
         {/* Learning Progress */}
         <section className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-100 dark:border-slate-800">
@@ -244,6 +270,9 @@ export default function Insights() {
             <p className="text-slate-400 text-sm text-center py-4">No data yet. Start playing!</p>
           )}
         </section>
+
+        {/* Right column: Screen Time + Privacy stacked */}
+        <div className="flex flex-col gap-6">
 
         {/* Screen Time Control */}
         <section className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-100 dark:border-slate-800">
@@ -338,29 +367,11 @@ export default function Insights() {
           </div>
         </section>
 
-      </main>
+        </div>{/* end right column */}
+        </div>{/* end 2-col grid */}
 
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 w-full bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 py-2 flex justify-between items-center z-50">
-        <button onClick={() => navigate('/')} className="flex flex-col items-center gap-1 group">
-          <div className="p-1.5 rounded-xl group-hover:bg-slate-50 dark:group-hover:bg-slate-800 transition-colors">
-            <span className="material-symbols-outlined text-slate-400 group-hover:text-primary">home</span>
-          </div>
-          <span className="text-[10px] font-medium text-slate-400 group-hover:text-primary">Home</span>
-        </button>
-        <button onClick={() => navigate('/select')} className="flex flex-col items-center gap-1 group">
-          <div className="p-1.5 rounded-xl group-hover:bg-slate-50 dark:group-hover:bg-slate-800 transition-colors">
-            <span className="material-symbols-outlined text-slate-400 group-hover:text-primary">switch_account</span>
-          </div>
-          <span className="text-[10px] font-medium text-slate-400 group-hover:text-primary">Switch Child</span>
-        </button>
-        <button className="flex flex-col items-center gap-1 group">
-          <div className="p-1.5 rounded-xl bg-primary/10 transition-colors">
-            <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>supervisor_account</span>
-          </div>
-          <span className="text-[10px] font-bold text-primary">Parents</span>
-        </button>
-      </nav>
+        </div>{/* end max-w-6xl */}
+      </main>
 
       {/* Change PIN: step 1 — verify current PIN */}
       {showChangePinModal && (

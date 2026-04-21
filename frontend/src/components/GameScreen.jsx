@@ -33,7 +33,7 @@ export default function GameScreen() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col items-center justify-center px-4 pb-8 w-full max-w-md mx-auto relative">
+      <main className="flex-1 flex flex-col items-center justify-center px-4 pb-8 w-full max-w-xl mx-auto relative">
 
         {/* Background Decorative Blob */}
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-80 h-80 bg-primary/20 rounded-full blur-3xl -z-10 dark:bg-primary/10"></div>

@@ -41,7 +41,7 @@ export default function ProfileSelect() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-100 to-green-50 flex flex-col items-center justify-center p-6 font-display">
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-2xl">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="text-5xl mb-3">👋</div>
@@ -50,12 +50,12 @@ export default function ProfileSelect() {
         </div>
 
         {/* Child cards */}
-        <div className="flex flex-col gap-3 mb-4">
+        <div className="flex flex-wrap justify-center gap-3 mb-4">
           {childProfiles.map((child) => (
             <button
               key={child.id}
               onClick={() => selectChild(child)}
-              className="flex items-center gap-4 bg-white rounded-2xl p-4 shadow-sm border border-slate-100 hover:border-primary/40 hover:shadow-md active:scale-[0.98] transition-all text-left"
+              className="flex items-center gap-4 bg-white rounded-2xl p-4 shadow-sm border border-slate-100 hover:border-primary/40 hover:shadow-md active:scale-[0.98] transition-all text-left w-72"
             >
               <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-3xl shrink-0">
                 {child.avatar}

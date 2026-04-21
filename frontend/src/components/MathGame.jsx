@@ -87,79 +87,80 @@ export default function MathGame() {
   const bgWrong = feedback === 'wrong'
 
   return (
-    <div className="bg-gradient-to-b from-yellow-50 to-orange-50 font-display text-slate-900 antialiased">
-      <div className="relative flex h-full min-h-screen w-full flex-col overflow-hidden max-w-md mx-auto shadow-2xl">
+    <div className="bg-gradient-to-br from-yellow-50 to-orange-50 min-h-screen flex flex-col font-display text-slate-900 antialiased">
 
-        {/* Decorative background */}
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-          <div className="absolute top-10 -left-10 w-40 h-40 bg-accent-yellow/30 rounded-full blur-2xl" />
-          <div className="absolute bottom-20 -right-10 w-48 h-48 bg-orange-200/50 rounded-full blur-2xl" />
+      {/* Decorative background */}
+      <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-20 left-20 w-64 h-64 bg-accent-yellow/30 rounded-full blur-3xl" />
+        <div className="absolute bottom-20 right-20 w-80 h-80 bg-orange-200/50 rounded-full blur-3xl" />
+      </div>
+
+      {/* Header */}
+      <header className="relative z-10 sticky top-0 flex items-center justify-between px-8 py-4 bg-white/70 backdrop-blur-md border-b border-white/50 shadow-sm">
+        <button
+          onClick={() => navigate('/')}
+          className="flex items-center gap-2 px-4 py-2 bg-white/80 rounded-full shadow-sm hover:bg-white transition-colors"
+        >
+          <span className="material-symbols-outlined text-slate-500">arrow_back</span>
+          <span className="text-sm font-semibold text-slate-600 hidden sm:inline">Home</span>
+        </button>
+        <div className="text-center">
+          <h1 className="text-xl font-black text-slate-800">Math Challenge</h1>
+          <p className="text-xs text-slate-500">Addition &amp; Subtraction</p>
         </div>
-
-        {/* Header */}
-        <div className="relative z-10 flex items-center justify-between px-5 pt-12 pb-4">
-          <button
-            onClick={() => navigate('/')}
-            className="w-10 h-10 bg-white/70 rounded-full flex items-center justify-center shadow-sm active:scale-95 transition-transform"
-          >
-            <span className="material-symbols-outlined text-slate-500">arrow_back</span>
-          </button>
-          <div className="text-center">
-            <h1 className="text-xl font-black text-slate-800">Math Challenge</h1>
-            <p className="text-xs text-slate-500">Addition & Subtraction</p>
-          </div>
-          <div className="bg-white/70 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-sm">
-            <span className="font-bold text-slate-700 text-sm">⭐ {score}/{total}</span>
-          </div>
+        <div className="bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm">
+          <span className="font-bold text-slate-700">⭐ {score} / {total}</span>
         </div>
+      </header>
 
-        {/* Streak banner */}
-        {streak >= 3 && (
-          <div className="relative z-10 mx-6 mb-2 bg-primary/20 text-green-700 rounded-xl py-2 text-center font-bold text-sm">
-            🔥 {streak} in a row! Keep it up!
-          </div>
-        )}
+      {/* Streak banner */}
+      {streak >= 3 && (
+        <div className="relative z-10 mx-auto mt-4 bg-primary/20 text-green-700 rounded-xl py-2 px-6 text-center font-bold text-sm">
+          🔥 {streak} in a row! Keep it up!
+        </div>
+      )}
 
-        {/* Main content */}
-        <div className="relative z-10 flex flex-col flex-1 items-center justify-center px-6 gap-8">
+      {/* Main content */}
+      <main className="flex-1 overflow-y-auto px-6 py-8">
+        <div className="min-h-full w-full max-w-2xl mx-auto flex flex-col items-center justify-center gap-8">
 
           {/* Problem display */}
           <div
             className={`
-              w-full bg-white rounded-3xl shadow-xl p-8 flex flex-col items-center gap-4 transition-all duration-200
+              w-full bg-white rounded-3xl shadow-xl p-10 flex flex-col items-center gap-6 transition-all duration-200
               ${bgCorrect ? 'ring-4 ring-primary bg-primary/10' : ''}
               ${bgWrong && shake ? 'ring-4 ring-red-400' : ''}
               ${shake ? 'animate-[shake_0.4s_ease]' : ''}
             `}
           >
             {/* Numbers */}
-            <div className="flex items-center gap-4">
-              <span className="text-7xl font-black text-slate-800 tabular-nums">{problem.a}</span>
-              <span className="text-5xl font-black text-accent-yellow">{problem.op}</span>
-              <span className="text-7xl font-black text-slate-800 tabular-nums">{problem.b}</span>
-              <span className="text-5xl font-black text-slate-400">=</span>
-              <span className="text-7xl font-black text-slate-300 tabular-nums">?</span>
+            <div className="flex items-center gap-6">
+              <span className="text-8xl font-black text-slate-800 tabular-nums">{problem.a}</span>
+              <span className="text-6xl font-black text-accent-yellow">{problem.op}</span>
+              <span className="text-8xl font-black text-slate-800 tabular-nums">{problem.b}</span>
+              <span className="text-6xl font-black text-slate-400">=</span>
+              <span className="text-8xl font-black text-slate-300 tabular-nums">?</span>
             </div>
 
             {/* Hint dots (visual counting aid) */}
             {problem.a <= 10 && problem.b <= 10 && (
-              <div className="flex flex-col items-center gap-1">
-                <div className="flex flex-wrap gap-1 justify-center max-w-[200px]">
+              <div className="flex flex-col items-center gap-2">
+                <div className="flex flex-wrap gap-2 justify-center max-w-[280px]">
                   {Array.from({ length: problem.a }).map((_, i) => (
-                    <div key={`a-${i}`} className="w-5 h-5 rounded-full bg-accent-blue" />
+                    <div key={`a-${i}`} className="w-6 h-6 rounded-full bg-accent-blue" />
                   ))}
                 </div>
                 {problem.op === '+' && (
-                  <div className="flex flex-wrap gap-1 justify-center max-w-[200px]">
+                  <div className="flex flex-wrap gap-2 justify-center max-w-[280px]">
                     {Array.from({ length: problem.b }).map((_, i) => (
-                      <div key={`b-${i}`} className="w-5 h-5 rounded-full bg-accent-yellow" />
+                      <div key={`b-${i}`} className="w-6 h-6 rounded-full bg-accent-yellow" />
                     ))}
                   </div>
                 )}
                 {problem.op === '−' && (
-                  <div className="flex flex-wrap gap-1 justify-center max-w-[200px]">
+                  <div className="flex flex-wrap gap-2 justify-center max-w-[280px]">
                     {Array.from({ length: problem.b }).map((_, i) => (
-                      <div key={`b-${i}`} className="w-5 h-5 rounded-full bg-red-300" />
+                      <div key={`b-${i}`} className="w-6 h-6 rounded-full bg-red-300" />
                     ))}
                   </div>
                 )}
@@ -170,10 +171,10 @@ export default function MathGame() {
           {/* Feedback message */}
           <div className="h-10 flex items-center">
             {feedback === 'correct' && (
-              <p className="text-xl font-bold text-green-600">{message}</p>
+              <p className="text-2xl font-bold text-green-600">{message}</p>
             )}
             {feedback === 'wrong' && (
-              <p className="text-xl font-bold text-red-500">{message}</p>
+              <p className="text-2xl font-bold text-red-500">{message}</p>
             )}
           </div>
 
@@ -190,14 +191,15 @@ export default function MathGame() {
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
+              onWheel={e => e.target.blur()}
               disabled={!!feedback}
               placeholder="?"
-              className="w-40 h-20 text-center text-5xl font-black rounded-2xl border-4 border-slate-200 bg-white shadow-md focus:outline-none focus:border-primary transition-colors disabled:opacity-50 tabular-nums"
+              className="w-48 h-24 text-center text-6xl font-black rounded-2xl border-4 border-slate-200 bg-white shadow-md focus:outline-none focus:border-primary transition-colors disabled:opacity-50 tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
             <button
               type="submit"
               disabled={!input || !!feedback}
-              className="w-full max-w-xs bg-primary text-slate-900 font-black text-xl py-4 rounded-2xl shadow-lg border-b-4 border-green-500 active:border-b-0 active:translate-y-1 transition-all disabled:opacity-40"
+              className="w-full max-w-sm bg-primary text-slate-900 font-black text-xl py-4 rounded-2xl shadow-lg border-b-4 border-green-500 hover:shadow-xl active:border-b-0 active:translate-y-1 transition-all disabled:opacity-40"
             >
               Check! ✓
             </button>
@@ -212,11 +214,7 @@ export default function MathGame() {
           </button>
 
         </div>
-
-        {/* Bottom padding */}
-        <div className="h-12" />
-
-      </div>
+      </main>
 
       <style>{`
         @keyframes shake {

@@ -67,10 +67,13 @@ def init_db():
             created_at TEXT NOT NULL
         )
     """)
+    # Add screen_time_limit to children if it doesn't exist yet
+    cur.execute("""
+        ALTER TABLE children ADD COLUMN IF NOT EXISTS screen_time_limit INTEGER NOT NULL DEFAULT 60
+    """)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS settings (
             parent_id TEXT PRIMARY KEY REFERENCES parents(id),
-            screen_time_limit INTEGER NOT NULL DEFAULT 60,
             audio_enabled INTEGER NOT NULL DEFAULT 1,
             pin_hash TEXT
         )
@@ -139,6 +142,7 @@ class ChildUpdate(BaseModel):
     name: Optional[str] = None
     age: Optional[int] = None
     avatar: Optional[str] = None
+    screen_time_limit: Optional[int] = None
 
 class VerifyPinRequest(BaseModel):
     pin: str
@@ -147,7 +151,6 @@ class SetPinRequest(BaseModel):
     pin: str
 
 class UpdateSettingsRequest(BaseModel):
-    screen_time_limit: Optional[int] = None
     audio_enabled: Optional[bool] = None
 
 class SessionCreate(BaseModel):
@@ -183,8 +186,8 @@ def register(req: RegisterRequest):
         )
         # Default PIN is "0000"
         cur.execute(
-            "INSERT INTO settings (parent_id, screen_time_limit, audio_enabled, pin_hash) VALUES (%s, %s, %s, %s)",
-            (parent_id, 60, 1, hash_password("0000")),
+            "INSERT INTO settings (parent_id, audio_enabled, pin_hash) VALUES (%s, %s, %s)",
+            (parent_id, 1, hash_password("0000")),
         )
         conn.commit()
 
@@ -234,7 +237,7 @@ def list_children(parent_id: str = Depends(get_current_parent_id)):
     conn = get_db()
     cur = get_cursor(conn)
     try:
-        cur.execute("SELECT * FROM children WHERE parent_id = %s", (parent_id,))
+        cur.execute("SELECT * FROM children WHERE parent_id = %s ORDER BY created_at", (parent_id,))
         rows = cur.fetchall()
         return [dict(r) for r in rows]
     finally:
@@ -275,10 +278,14 @@ def update_child(child_id: str, req: ChildUpdate, parent_id: str = Depends(get_c
         name = req.name if req.name is not None else row["name"]
         age = req.age if req.age is not None else row["age"]
         avatar = req.avatar if req.avatar is not None else row["avatar"]
+        screen_time_limit = req.screen_time_limit if req.screen_time_limit is not None else row["screen_time_limit"]
 
-        cur.execute("UPDATE children SET name=%s, age=%s, avatar=%s WHERE id=%s", (name, age, avatar, child_id))
+        cur.execute(
+            "UPDATE children SET name=%s, age=%s, avatar=%s, screen_time_limit=%s WHERE id=%s",
+            (name, age, avatar, screen_time_limit, child_id),
+        )
         conn.commit()
-        return {"id": child_id, "parent_id": parent_id, "name": name, "age": age, "avatar": avatar}
+        return {"id": child_id, "parent_id": parent_id, "name": name, "age": age, "avatar": avatar, "screen_time_limit": screen_time_limit}
     finally:
         cur.close()
         conn.close()
@@ -314,7 +321,6 @@ def get_settings(parent_id: str = Depends(get_current_parent_id)):
         if not row:
             raise HTTPException(status_code=404, detail="Settings not found")
         return {
-            "screen_time_limit": row["screen_time_limit"],
             "audio_enabled": bool(row["audio_enabled"]),
             "has_pin": row["pin_hash"] is not None,
         }
@@ -333,15 +339,14 @@ def update_settings(req: UpdateSettingsRequest, parent_id: str = Depends(get_cur
         if not row:
             raise HTTPException(status_code=404, detail="Settings not found")
 
-        limit = req.screen_time_limit if req.screen_time_limit is not None else row["screen_time_limit"]
         audio = (1 if req.audio_enabled else 0) if req.audio_enabled is not None else row["audio_enabled"]
 
         cur.execute(
-            "UPDATE settings SET screen_time_limit=%s, audio_enabled=%s WHERE parent_id=%s",
-            (limit, audio, parent_id),
+            "UPDATE settings SET audio_enabled=%s WHERE parent_id=%s",
+            (audio, parent_id),
         )
         conn.commit()
-        return {"screen_time_limit": limit, "audio_enabled": bool(audio), "has_pin": row["pin_hash"] is not None}
+        return {"audio_enabled": bool(audio), "has_pin": row["pin_hash"] is not None}
     finally:
         cur.close()
         conn.close()
@@ -468,17 +473,13 @@ def get_screen_time(child_id: str, parent_id: str = Depends(get_current_parent_i
     cur = get_cursor(conn)
     try:
         cur.execute(
-            "SELECT id FROM children WHERE id = %s AND parent_id = %s", (child_id, parent_id)
+            "SELECT id, screen_time_limit FROM children WHERE id = %s AND parent_id = %s", (child_id, parent_id)
         )
         child = cur.fetchone()
         if not child:
             raise HTTPException(status_code=404, detail="Child not found")
 
-        cur.execute(
-            "SELECT screen_time_limit FROM settings WHERE parent_id = %s", (parent_id,)
-        )
-        settings_row = cur.fetchone()
-        limit_minutes = settings_row["screen_time_limit"] if settings_row else 60
+        limit_minutes = child["screen_time_limit"]
 
         today = datetime.now(timezone.utc).date().isoformat()
         cur.execute(
