@@ -9,6 +9,7 @@ const GAME_META = {
   notes:      { label: 'Music',         icon: 'music_note', color: 'bg-accent-purple', scoreMax: 30 },
   animals:    { label: 'Animals',       icon: 'pets',       color: 'bg-accent-blue',   scoreMax: 30 },
   whackamole: { label: 'Motor Skills',  icon: 'touch_app',  color: 'bg-accent-red',    scoreMax: 25 },
+  forest:     { label: 'Forest Explore', icon: 'forest',     color: 'bg-emerald-500',   scoreMax: 1200 },
 }
 
 function pct(totalScore, max) {
@@ -206,6 +207,7 @@ export default function Insights() {
               <div className="space-y-5">
                 {Object.entries(GAME_META).map(([game, meta]) => {
                   const stats = insights.game_stats[game]
+                  const bestScore = Math.max(stats?.best_score ?? 0, insights.high_scores?.[game] ?? 0)
                   const totalScore = stats?.total_score ?? 0
                   const progress = pct(totalScore, meta.scoreMax)
                   return (
@@ -216,7 +218,7 @@ export default function Insights() {
                           {meta.label}
                         </span>
                         <span className="font-bold text-slate-900 dark:text-white">
-                          {stats ? `${stats.sessions} session${stats.sessions !== 1 ? 's' : ''}` : 'No data'}
+                          {stats ? `${stats.sessions} session${stats.sessions !== 1 ? 's' : ''}` : bestScore > 0 ? 'High score set' : 'No data'}
                         </span>
                       </div>
                       <div className="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
@@ -225,8 +227,8 @@ export default function Insights() {
                           style={{ width: `${progress}%` }}
                         />
                       </div>
-                      {stats && (
-                        <p className="text-xs text-slate-400">Best score: {stats.best_score} · Total: {stats.total_score} pts</p>
+                      {(stats || bestScore > 0) && (
+                        <p className="text-xs text-slate-400">Best score: {bestScore} · Total: {totalScore} pts</p>
                       )}
                     </div>
                   )

@@ -15,6 +15,8 @@ from typing import Optional
 SECRET_KEY = "kids-dashboard-secret-key-change-in-prod"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_DAYS = 30
+XP_EARNING_GAMES = {"math", "notes", "animals", "whackamole", "puzzles"}
+FOREST_ENTRY_XP_COST = 25
 
 DATABASE_URL = os.environ.get(
     "DATABASE_URL",
@@ -88,6 +90,24 @@ def init_db():
             created_at TEXT NOT NULL
         )
     """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS game_high_scores (
+            child_id TEXT NOT NULL REFERENCES children(id),
+            game TEXT NOT NULL,
+            score INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (child_id, game)
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS child_xp (
+            child_id TEXT PRIMARY KEY REFERENCES children(id),
+            balance INTEGER NOT NULL DEFAULT 0,
+            total_earned INTEGER NOT NULL DEFAULT 0,
+            total_spent INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT NOT NULL
+        )
+    """)
     conn.commit()
     cur.close()
     conn.close()
@@ -117,6 +137,26 @@ def get_current_parent_id(creds: HTTPAuthorizationCredentials = Depends(bearer_s
         return payload["sub"]
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+
+def calculate_xp_award(game: str, score: int, duration_seconds: int) -> int:
+    if game not in XP_EARNING_GAMES:
+        return 0
+    score_bonus = min(35, max(0, score))
+    time_bonus = min(15, max(0, duration_seconds // 20))
+    return 10 + score_bonus + time_bonus
+
+
+def ensure_child_xp_row(cur, child_id: str):
+    now = datetime.now(timezone.utc).isoformat()
+    cur.execute(
+        """
+        INSERT INTO child_xp (child_id, balance, total_earned, total_spent, updated_at)
+        VALUES (%s, 0, 0, 0, %s)
+        ON CONFLICT (child_id) DO NOTHING
+        """,
+        (child_id, now),
+    )
 
 
 # ── Pydantic models ───────────────────────────────────────────────────────────
@@ -159,6 +199,14 @@ class SessionCreate(BaseModel):
     score: int
     duration_seconds: int
 
+class HighScoreUpdate(BaseModel):
+    child_id: str
+    game: str
+    score: int
+
+class XpSpendRequest(BaseModel):
+    child_id: str
+
 
 # ── Auth endpoints ────────────────────────────────────────────────────────────
 
@@ -183,6 +231,10 @@ def register(req: RegisterRequest):
         cur.execute(
             "INSERT INTO children (id, parent_id, name, age, avatar, created_at) VALUES (%s, %s, %s, %s, %s, %s)",
             (child_id, parent_id, req.child_name, req.child_age, req.child_avatar, now),
+        )
+        cur.execute(
+            "INSERT INTO child_xp (child_id, balance, total_earned, total_spent, updated_at) VALUES (%s, %s, %s, %s, %s)",
+            (child_id, 0, 0, 0, now),
         )
         # Default PIN is "0000"
         cur.execute(
@@ -255,6 +307,10 @@ def create_child(req: ChildCreate, parent_id: str = Depends(get_current_parent_i
         cur.execute(
             "INSERT INTO children (id, parent_id, name, age, avatar, created_at) VALUES (%s, %s, %s, %s, %s, %s)",
             (child_id, parent_id, req.name, req.age, req.avatar, now),
+        )
+        cur.execute(
+            "INSERT INTO child_xp (child_id, balance, total_earned, total_spent, updated_at) VALUES (%s, %s, %s, %s, %s)",
+            (child_id, 0, 0, 0, now),
         )
         conn.commit()
         return {"id": child_id, "parent_id": parent_id, "name": req.name, "age": req.age, "avatar": req.avatar}
@@ -406,8 +462,171 @@ def create_session(req: SessionCreate, parent_id: str = Depends(get_current_pare
             "INSERT INTO sessions (id, child_id, game, score, duration_seconds, created_at) VALUES (%s, %s, %s, %s, %s, %s)",
             (session_id, req.child_id, req.game, req.score, req.duration_seconds, now),
         )
+        xp_awarded = calculate_xp_award(req.game, req.score, req.duration_seconds)
+        if xp_awarded > 0:
+            ensure_child_xp_row(cur, req.child_id)
+            cur.execute(
+                """
+                UPDATE child_xp
+                SET balance = balance + %s,
+                    total_earned = total_earned + %s,
+                    updated_at = %s
+                WHERE child_id = %s
+                """,
+                (xp_awarded, xp_awarded, now, req.child_id),
+            )
         conn.commit()
-        return {"id": session_id}
+        return {"id": session_id, "xp_awarded": xp_awarded}
+    finally:
+        cur.close()
+        conn.close()
+
+
+# ── XP endpoints ──────────────────────────────────────────────────────────────
+
+@app.get("/xp/{child_id}")
+def get_child_xp(child_id: str, parent_id: str = Depends(get_current_parent_id)):
+    conn = get_db()
+    cur = get_cursor(conn)
+    try:
+        cur.execute(
+            "SELECT id FROM children WHERE id = %s AND parent_id = %s", (child_id, parent_id)
+        )
+        child = cur.fetchone()
+        if not child:
+            raise HTTPException(status_code=404, detail="Child not found")
+
+        ensure_child_xp_row(cur, child_id)
+        cur.execute(
+            "SELECT balance, total_earned, total_spent, updated_at FROM child_xp WHERE child_id = %s",
+            (child_id,),
+        )
+        row = cur.fetchone()
+        conn.commit()
+        return {
+            "child_id": child_id,
+            "balance": row["balance"],
+            "total_earned": row["total_earned"],
+            "total_spent": row["total_spent"],
+            "forest_entry_cost": FOREST_ENTRY_XP_COST,
+            "updated_at": row["updated_at"],
+        }
+    finally:
+        cur.close()
+        conn.close()
+
+
+@app.post("/xp/spend-forest-entry")
+def spend_forest_entry_xp(req: XpSpendRequest, parent_id: str = Depends(get_current_parent_id)):
+    conn = get_db()
+    cur = get_cursor(conn)
+    try:
+        cur.execute(
+            "SELECT id FROM children WHERE id = %s AND parent_id = %s", (req.child_id, parent_id)
+        )
+        child = cur.fetchone()
+        if not child:
+            raise HTTPException(status_code=404, detail="Child not found")
+
+        ensure_child_xp_row(cur, req.child_id)
+        cur.execute("SELECT balance FROM child_xp WHERE child_id = %s", (req.child_id,))
+        row = cur.fetchone()
+        if row["balance"] < FOREST_ENTRY_XP_COST:
+            raise HTTPException(status_code=400, detail="Not enough XP for Forest Explore")
+
+        now = datetime.now(timezone.utc).isoformat()
+        cur.execute(
+            """
+            UPDATE child_xp
+            SET balance = balance - %s,
+                total_spent = total_spent + %s,
+                updated_at = %s
+            WHERE child_id = %s
+            RETURNING balance, total_earned, total_spent, updated_at
+            """,
+            (FOREST_ENTRY_XP_COST, FOREST_ENTRY_XP_COST, now, req.child_id),
+        )
+        updated = cur.fetchone()
+        conn.commit()
+        return {
+            "child_id": req.child_id,
+            "balance": updated["balance"],
+            "total_earned": updated["total_earned"],
+            "total_spent": updated["total_spent"],
+            "forest_entry_cost": FOREST_ENTRY_XP_COST,
+            "updated_at": updated["updated_at"],
+        }
+    finally:
+        cur.close()
+        conn.close()
+
+
+# ── High score endpoints ─────────────────────────────────────────────────────
+
+@app.get("/high-scores/{child_id}/{game}")
+def get_high_score(child_id: str, game: str, parent_id: str = Depends(get_current_parent_id)):
+    conn = get_db()
+    cur = get_cursor(conn)
+    try:
+        cur.execute(
+            "SELECT id FROM children WHERE id = %s AND parent_id = %s", (child_id, parent_id)
+        )
+        child = cur.fetchone()
+        if not child:
+            raise HTTPException(status_code=404, detail="Child not found")
+
+        cur.execute(
+            "SELECT score, updated_at FROM game_high_scores WHERE child_id = %s AND game = %s",
+            (child_id, game),
+        )
+        row = cur.fetchone()
+        return {
+            "child_id": child_id,
+            "game": game,
+            "score": row["score"] if row else 0,
+            "updated_at": row["updated_at"] if row else None,
+        }
+    finally:
+        cur.close()
+        conn.close()
+
+
+@app.post("/high-scores")
+def update_high_score(req: HighScoreUpdate, parent_id: str = Depends(get_current_parent_id)):
+    conn = get_db()
+    cur = get_cursor(conn)
+    try:
+        cur.execute(
+            "SELECT id FROM children WHERE id = %s AND parent_id = %s", (req.child_id, parent_id)
+        )
+        child = cur.fetchone()
+        if not child:
+            raise HTTPException(status_code=404, detail="Child not found")
+
+        now = datetime.now(timezone.utc).isoformat()
+        cur.execute(
+            """
+            INSERT INTO game_high_scores (child_id, game, score, updated_at)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (child_id, game)
+            DO UPDATE SET
+                score = GREATEST(game_high_scores.score, EXCLUDED.score),
+                updated_at = CASE
+                    WHEN EXCLUDED.score > game_high_scores.score THEN EXCLUDED.updated_at
+                    ELSE game_high_scores.updated_at
+                END
+            RETURNING score, updated_at
+            """,
+            (req.child_id, req.game, req.score, now),
+        )
+        row = cur.fetchone()
+        conn.commit()
+        return {
+            "child_id": req.child_id,
+            "game": req.game,
+            "score": row["score"],
+            "updated_at": row["updated_at"],
+        }
     finally:
         cur.close()
         conn.close()
@@ -432,6 +651,11 @@ def get_insights(child_id: str, parent_id: str = Depends(get_current_parent_id))
         )
         sessions = [dict(s) for s in cur.fetchall()]
 
+        cur.execute(
+            "SELECT game, score FROM game_high_scores WHERE child_id = %s", (child_id,)
+        )
+        high_scores = {row["game"]: row["score"] for row in cur.fetchall()}
+
         # Aggregate by game
         game_stats: dict = {}
         for s in sessions:
@@ -447,9 +671,13 @@ def get_insights(child_id: str, parent_id: str = Depends(get_current_parent_id))
         total_sessions = len(sessions)
         total_duration_seconds = sum(s["duration_seconds"] for s in sessions)
 
-        today = datetime.now(timezone.utc).date().isoformat()
+        now = datetime.now(timezone.utc)
+        start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_of_day = start_of_day + timedelta(days=1)
         today_duration_seconds = sum(
-            s["duration_seconds"] for s in sessions if s["created_at"].startswith(today)
+            s["duration_seconds"]
+            for s in sessions
+            if start_of_day.isoformat() <= s["created_at"] < end_of_day.isoformat()
         )
 
         return {
@@ -458,6 +686,7 @@ def get_insights(child_id: str, parent_id: str = Depends(get_current_parent_id))
             "total_duration_seconds": total_duration_seconds,
             "today_duration_seconds": today_duration_seconds,
             "game_stats": game_stats,
+            "high_scores": high_scores,
             "recent_sessions": sessions[:10],
         }
     finally:
@@ -481,10 +710,16 @@ def get_screen_time(child_id: str, parent_id: str = Depends(get_current_parent_i
 
         limit_minutes = child["screen_time_limit"]
 
-        today = datetime.now(timezone.utc).date().isoformat()
+        now = datetime.now(timezone.utc)
+        start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_of_day = start_of_day + timedelta(days=1)
         cur.execute(
-            "SELECT SUM(duration_seconds) as total FROM sessions WHERE child_id = %s AND created_at LIKE %s",
-            (child_id, f"{today}%"),
+            """
+            SELECT SUM(duration_seconds) as total
+            FROM sessions
+            WHERE child_id = %s AND created_at >= %s AND created_at < %s
+            """,
+            (child_id, start_of_day.isoformat(), end_of_day.isoformat()),
         )
         row = cur.fetchone()
         used_seconds = row["total"] or 0
@@ -496,6 +731,8 @@ def get_screen_time(child_id: str, parent_id: str = Depends(get_current_parent_i
             "used_minutes": round(used_minutes, 1),
             "remaining_minutes": max(0.0, limit_minutes - used_minutes),
             "exceeded": used_minutes >= limit_minutes,
+            "day_start": start_of_day.isoformat(),
+            "day_end": end_of_day.isoformat(),
         }
     finally:
         cur.close()

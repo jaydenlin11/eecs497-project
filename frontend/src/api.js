@@ -39,6 +39,14 @@ export const api = {
   // Sessions
   createSession: (data) => request('/sessions', { method: 'POST', body: JSON.stringify(data) }),
 
+  // High scores
+  getHighScore: (childId, game) => request(`/high-scores/${childId}/${game}`),
+  updateHighScore: (data) => request('/high-scores', { method: 'POST', body: JSON.stringify(data) }),
+
+  // XP
+  getChildXp: (childId) => request(`/xp/${childId}`),
+  spendForestEntryXp: (childId) => request('/xp/spend-forest-entry', { method: 'POST', body: JSON.stringify({ child_id: childId }) }),
+
   // Insights & screen time
   getInsights: (childId) => request(`/insights/${childId}`),
   getScreenTime: (childId) => request(`/screen-time/${childId}`),

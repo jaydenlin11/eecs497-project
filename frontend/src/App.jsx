@@ -10,6 +10,7 @@ import AnimalGame from './components/AnimalGame'
 import MathGame from './components/MathGame'
 import NoteGame from './components/NoteGame'
 import WhackaMoleGame from './components/WhackaMoleGame'
+import ForestPlatformer from './components/ForestPlatformer'
 
 /** Requires a valid JWT. If missing, redirects to /login. */
 function RequireAuth({ children }) {
@@ -65,6 +66,9 @@ export default function App() {
           } />
           <Route path="/game/whackamole" element={
             <RequireAuth><RequireChild><WhackaMoleGame /></RequireChild></RequireAuth>
+          } />
+          <Route path="/game/forest" element={
+            <RequireAuth><RequireChild><ForestPlatformer /></RequireChild></RequireAuth>
           } />
 
           {/* Fallback */}

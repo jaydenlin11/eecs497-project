@@ -8,6 +8,27 @@ const ANIMALS = [
   'Rabbit', 'Monkey', 'Horse', 'Tiger', 'Zebra', 'Turtle',
 ]
 
+const ANIMAL_EMOJIS = {
+  Dog: '🐶',
+  Cat: '🐱',
+  Cow: '🐮',
+  Pig: '🐷',
+  Frog: '🐸',
+  Lion: '🦁',
+  Bear: '🐻',
+  Elephant: '🐘',
+  Giraffe: '🦒',
+  Penguin: '🐧',
+  Fox: '🦊',
+  Duck: '🦆',
+  Rabbit: '🐰',
+  Monkey: '🐵',
+  Horse: '🐴',
+  Tiger: '🐯',
+  Zebra: '🦓',
+  Turtle: '🐢',
+}
+
 // Verified Wikimedia Commons thumbnail URLs
 const ANIMAL_IMAGES = {
   Dog: [
@@ -105,6 +126,19 @@ const ANIMAL_IMAGES = {
 function pickImage(name) {
   const imgs = ANIMAL_IMAGES[name] ?? []
   return imgs.length > 0 ? imgs[Math.floor(Math.random() * imgs.length)] : null
+}
+
+function AnimalImage({ name, className = '', fallbackClassName = 'text-6xl' }) {
+  return (
+    <div
+      className={`flex items-center justify-center bg-gradient-to-br from-white via-slate-50 to-slate-100 ${className}`}
+      aria-label={name}
+    >
+      <span className={`${fallbackClassName} select-none drop-shadow-sm`} aria-hidden="true">
+        {ANIMAL_EMOJIS[name] ?? '🐾'}
+      </span>
+    </div>
+  )
 }
 
 const CARD_COLORS = [
@@ -250,16 +284,11 @@ function ClickMode({ onBack }) {
                     border-black/10
                   `}
                 >
-                  {animal.image ? (
-                    <img
-                      src={animal.image}
-                      alt={animal.name}
-                      className="w-full h-full object-cover select-none"
-                      draggable={false}
-                    />
-                  ) : (
-                    <span className="text-5xl select-none text-slate-400">?</span>
-                  )}
+                  <AnimalImage
+                    name={animal.name}
+                    className="w-full h-full"
+                    fallbackClassName="text-6xl"
+                  />
                 </button>
               )
             })}
@@ -384,16 +413,11 @@ function AudioMode({ onBack }) {
           <div className="flex flex-col items-center gap-4">
             <p className="text-slate-500 font-medium uppercase tracking-wider text-sm">What animal is this?</p>
             <div className="w-72 h-72 rounded-3xl bg-white shadow-xl overflow-hidden flex items-center justify-center">
-              {currentImage ? (
-                <img
-                  src={currentImage}
-                  alt="mystery animal"
-                  className="w-full h-full object-cover"
-                  draggable={false}
-                />
-              ) : (
-                <span className="text-6xl text-slate-300">?</span>
-              )}
+              <AnimalImage
+                name={animal}
+                className="w-full h-full"
+                fallbackClassName="text-7xl"
+              />
             </div>
           </div>
 

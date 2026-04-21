@@ -1,7 +1,9 @@
 import { useNavigate } from 'react-router-dom'
+import { useGameSession } from '../hooks/useGameSession'
 
 export default function GameScreen() {
   const navigate = useNavigate()
+  useGameSession('puzzles')
 
   return (
     <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display min-h-screen flex flex-col overflow-hidden selection:bg-primary selection:text-slate-900">
