@@ -150,6 +150,16 @@ function LearnPhase({ level, onDone, onBack }) {
     return () => clearTimeout(timeoutRef.current)
   }, [currentIdx, level.items.length])
 
+  const handleSkip = () => {
+    clearTimeout(timeoutRef.current)
+    onDone()
+  }
+
+  const handleBack = () => {
+    clearTimeout(timeoutRef.current)
+    onBack()
+  }
+
   if (showReady) {
     return (
       <div className="flex flex-col flex-1 items-center justify-center px-6 py-12 gap-8">
@@ -170,8 +180,11 @@ function LearnPhase({ level, onDone, onBack }) {
           Let's Go! 🎯
         </button>
         <div className="flex gap-4">
-          <button onClick={onBack} className="text-slate-400 text-sm hover:text-slate-600 transition-colors">
+          <button onClick={handleBack} className="text-slate-400 text-sm hover:text-slate-600 transition-colors">
             ← Back to levels
+          </button>
+          <button onClick={handleSkip} className="text-slate-400 text-sm hover:text-slate-600 transition-colors">
+            Skip preview
           </button>
           <button onClick={() => navigate('/')} className="text-slate-400 text-sm hover:text-slate-600 transition-colors flex items-center gap-1">
             <span className="material-symbols-outlined text-lg">home</span> Home
@@ -183,19 +196,41 @@ function LearnPhase({ level, onDone, onBack }) {
 
   const item = level.items[currentIdx]
   return (
-    <div className="flex flex-col flex-1 items-center justify-center px-6 gap-8">
-      <div className="text-slate-500 font-medium uppercase tracking-wider text-sm">Get ready!</div>
-      <div className="w-56 h-56 rounded-3xl bg-white shadow-xl flex items-center justify-center">
-        <span className="text-[100px]">{item.emoji}</span>
-      </div>
-      <div className="text-center">
-        <div className="text-slate-500 text-lg">This is a</div>
-        <div className="text-5xl font-black text-slate-800">{item.name}!</div>
-      </div>
-      <div className="flex gap-3 mt-2">
-        {level.items.map((_, i) => (
-          <div key={i} className={`w-3 h-3 rounded-full transition-colors ${i <= currentIdx ? 'bg-primary' : 'bg-slate-200'}`} />
-        ))}
+    <div className="flex flex-col flex-1">
+      <header className="flex items-center justify-between px-8 py-4">
+        <button
+          onClick={handleBack}
+          className="flex items-center gap-2 px-4 py-2 bg-white/80 rounded-full shadow-sm hover:bg-white transition-colors"
+        >
+          <span className="material-symbols-outlined text-slate-500">arrow_back</span>
+          <span className="text-sm font-semibold text-slate-600 hidden sm:inline">Levels</span>
+        </button>
+        <div className="text-sm font-black text-slate-500 uppercase tracking-wider">
+          Preview {currentIdx + 1} / {level.items.length}
+        </div>
+        <button
+          onClick={handleSkip}
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-slate-900 rounded-full shadow-sm font-black hover:bg-primary-dark hover:text-white transition-colors"
+        >
+          <span className="material-symbols-outlined text-[20px]">skip_next</span>
+          <span className="text-sm hidden sm:inline">Skip</span>
+        </button>
+      </header>
+
+      <div className="flex flex-col flex-1 items-center justify-center px-6 gap-8">
+        <div className="text-slate-500 font-medium uppercase tracking-wider text-sm">Get ready!</div>
+        <div className="w-56 h-56 rounded-3xl bg-white shadow-xl flex items-center justify-center">
+          <span className="text-[100px]">{item.emoji}</span>
+        </div>
+        <div className="text-center">
+          <div className="text-slate-500 text-lg">This is a</div>
+          <div className="text-5xl font-black text-slate-800">{item.name}!</div>
+        </div>
+        <div className="flex gap-3 mt-2">
+          {level.items.map((_, i) => (
+            <div key={i} className={`w-3 h-3 rounded-full transition-colors ${i <= currentIdx ? 'bg-primary' : 'bg-slate-200'}`} />
+          ))}
+        </div>
       </div>
     </div>
   )

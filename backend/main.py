@@ -108,6 +108,16 @@ def init_db():
             updated_at TEXT NOT NULL
         )
     """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS xp_events (
+            id TEXT PRIMARY KEY,
+            child_id TEXT NOT NULL REFERENCES children(id),
+            kind TEXT NOT NULL,
+            game TEXT,
+            amount INTEGER NOT NULL,
+            created_at TEXT NOT NULL
+        )
+    """)
     conn.commit()
     cur.close()
     conn.close()
@@ -157,6 +167,13 @@ def ensure_child_xp_row(cur, child_id: str):
         """,
         (child_id, now),
     )
+
+
+def utc_day_bounds():
+    now = datetime.now(timezone.utc)
+    start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    end_of_day = start_of_day + timedelta(days=1)
+    return start_of_day, end_of_day
 
 
 # ── Pydantic models ───────────────────────────────────────────────────────────
@@ -475,6 +492,10 @@ def create_session(req: SessionCreate, parent_id: str = Depends(get_current_pare
                 """,
                 (xp_awarded, xp_awarded, now, req.child_id),
             )
+            cur.execute(
+                "INSERT INTO xp_events (id, child_id, kind, game, amount, created_at) VALUES (%s, %s, %s, %s, %s, %s)",
+                (str(uuid.uuid4()), req.child_id, "earn", req.game, xp_awarded, now),
+            )
         conn.commit()
         return {"id": session_id, "xp_awarded": xp_awarded}
     finally:
@@ -502,12 +523,36 @@ def get_child_xp(child_id: str, parent_id: str = Depends(get_current_parent_id))
             (child_id,),
         )
         row = cur.fetchone()
+        start_of_day, end_of_day = utc_day_bounds()
+        cur.execute(
+            """
+            SELECT game, score, duration_seconds
+            FROM sessions
+            WHERE child_id = %s AND created_at >= %s AND created_at < %s
+            """,
+            (child_id, start_of_day.isoformat(), end_of_day.isoformat()),
+        )
+        earned_today = sum(
+            calculate_xp_award(s["game"], s["score"], s["duration_seconds"])
+            for s in cur.fetchall()
+        )
+        cur.execute(
+            """
+            SELECT COALESCE(SUM(amount), 0) AS total
+            FROM xp_events
+            WHERE child_id = %s AND kind = %s AND created_at >= %s AND created_at < %s
+            """,
+            (child_id, "spend", start_of_day.isoformat(), end_of_day.isoformat()),
+        )
+        spent_today = cur.fetchone()["total"] or 0
         conn.commit()
         return {
             "child_id": child_id,
             "balance": row["balance"],
             "total_earned": row["total_earned"],
             "total_spent": row["total_spent"],
+            "earned_today": earned_today,
+            "spent_today": spent_today,
             "forest_entry_cost": FOREST_ENTRY_XP_COST,
             "updated_at": row["updated_at"],
         }
@@ -547,12 +592,40 @@ def spend_forest_entry_xp(req: XpSpendRequest, parent_id: str = Depends(get_curr
             (FOREST_ENTRY_XP_COST, FOREST_ENTRY_XP_COST, now, req.child_id),
         )
         updated = cur.fetchone()
+        cur.execute(
+            "INSERT INTO xp_events (id, child_id, kind, game, amount, created_at) VALUES (%s, %s, %s, %s, %s, %s)",
+            (str(uuid.uuid4()), req.child_id, "spend", "forest", FOREST_ENTRY_XP_COST, now),
+        )
+        start_of_day, end_of_day = utc_day_bounds()
+        cur.execute(
+            """
+            SELECT COALESCE(SUM(amount), 0) AS total
+            FROM xp_events
+            WHERE child_id = %s AND kind = %s AND created_at >= %s AND created_at < %s
+            """,
+            (req.child_id, "spend", start_of_day.isoformat(), end_of_day.isoformat()),
+        )
+        spent_today = cur.fetchone()["total"] or 0
+        cur.execute(
+            """
+            SELECT game, score, duration_seconds
+            FROM sessions
+            WHERE child_id = %s AND created_at >= %s AND created_at < %s
+            """,
+            (req.child_id, start_of_day.isoformat(), end_of_day.isoformat()),
+        )
+        earned_today = sum(
+            calculate_xp_award(s["game"], s["score"], s["duration_seconds"])
+            for s in cur.fetchall()
+        )
         conn.commit()
         return {
             "child_id": req.child_id,
             "balance": updated["balance"],
             "total_earned": updated["total_earned"],
             "total_spent": updated["total_spent"],
+            "earned_today": earned_today,
+            "spent_today": spent_today,
             "forest_entry_cost": FOREST_ENTRY_XP_COST,
             "updated_at": updated["updated_at"],
         }

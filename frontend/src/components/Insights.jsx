@@ -8,7 +8,7 @@ const GAME_META = {
   math:       { label: 'Logic & Math',  icon: 'calculate',  color: 'bg-primary',     scoreMax: 50  },
   notes:      { label: 'Music',         icon: 'music_note', color: 'bg-accent-purple', scoreMax: 30 },
   animals:    { label: 'Animals',       icon: 'pets',       color: 'bg-accent-blue',   scoreMax: 30 },
-  whackamole: { label: 'Motor Skills',  icon: 'touch_app',  color: 'bg-accent-red',    scoreMax: 25 },
+  whackamole: { label: 'Whack-a-Mole (Motor Skills)', icon: 'touch_app', color: 'bg-accent-red', scoreMax: 25 },
   forest:     { label: 'Forest Explore', icon: 'forest',     color: 'bg-emerald-500',   scoreMax: 1200 },
 }
 
@@ -17,10 +17,8 @@ function pct(totalScore, max) {
 }
 
 function fmtDuration(seconds) {
-  const h = Math.floor(seconds / 3600)
-  const m = Math.floor((seconds % 3600) / 60)
-  if (h > 0) return `${h}h ${m}m`
-  return `${m}m`
+  const minutes = seconds / 60
+  return `${Number(minutes.toFixed(1))}m`
 }
 
 export default function Insights() {
@@ -31,25 +29,20 @@ export default function Insights() {
   const [insights, setInsights] = useState(null)
   const [loadingInsights, setLoadingInsights] = useState(false)
   const [screenTimeLimit, setScreenTimeLimit] = useState(childProfiles[0]?.screen_time_limit ?? 60)
+  const [screenTimeMode, setScreenTimeMode] = useState((childProfiles[0]?.screen_time_limit ?? 60) > 120 ? 'other' : 'slider')
   const [savingLimit, setSavingLimit] = useState(false)
-  const [audioEnabled, setAudioEnabled] = useState(true)
-
   // PIN change flow
   const [showChangePinModal, setShowChangePinModal] = useState(false)
   const [showNewPinModal, setShowNewPinModal] = useState(false)
   const [pinSuccessMsg, setPinSuccessMsg] = useState('')
 
-  // Load global settings (audio, pin) once
-  useEffect(() => {
-    api.getSettings().then((s) => {
-      setAudioEnabled(s.audio_enabled)
-    }).catch(() => {})
-  }, [])
-
   // When selected child changes, sync the screen time slider to that child's limit
   useEffect(() => {
     const child = childProfiles.find((c) => c.id === selectedChildId)
-    if (child?.screen_time_limit != null) setScreenTimeLimit(child.screen_time_limit)
+    if (child?.screen_time_limit != null) {
+      setScreenTimeLimit(child.screen_time_limit)
+      setScreenTimeMode(child.screen_time_limit > 120 ? 'other' : 'slider')
+    }
   }, [selectedChildId, childProfiles])
 
   // Load insights when selected child changes
@@ -63,19 +56,34 @@ export default function Insights() {
   }, [selectedChildId])
 
   async function saveScreenTimeLimit(val) {
+    const nextVal = Math.max(0, Math.round(Number(val) || 0))
     setSavingLimit(true)
     try {
-      await api.updateChild(selectedChildId, { screen_time_limit: val })
-      setScreenTimeLimit(val)
+      await api.updateChild(selectedChildId, { screen_time_limit: nextVal })
+      setScreenTimeLimit(nextVal)
+      setScreenTimeMode(nextVal > 120 ? 'other' : 'slider')
       await refreshChildren()
     } finally {
       setSavingLimit(false)
     }
   }
 
-  async function toggleAudio(val) {
-    setAudioEnabled(val)
-    await api.updateSettings({ audio_enabled: val }).catch(() => setAudioEnabled(!val))
+  function updateScreenTimeLimitInput(rawValue) {
+    const digits = rawValue.replace(/\D/g, '')
+    const nextVal = Math.max(0, Number(digits) || 0)
+    setScreenTimeLimit(nextVal)
+    setScreenTimeMode(nextVal > 120 ? 'other' : 'slider')
+  }
+
+  function chooseScreenTimeSliderMode() {
+    const nextVal = Math.min(120, screenTimeLimit)
+    setScreenTimeMode('slider')
+    setScreenTimeLimit(nextVal)
+    saveScreenTimeLimit(nextVal)
+  }
+
+  function chooseScreenTimeOtherMode() {
+    setScreenTimeMode('other')
   }
 
   // Change PIN flow: first verify current PIN, then set new one
@@ -290,28 +298,76 @@ export default function Insights() {
           <div className="flex flex-col gap-4">
             <div className="flex justify-between items-end">
               <span className="text-sm font-medium text-slate-500 dark:text-slate-400">Set Limit</span>
-              <span className="text-2xl font-bold text-slate-900 dark:text-white">
-                {screenTimeLimit} <span className="text-sm font-normal text-slate-500">mins</span>
-              </span>
+              <label className="flex items-center gap-2">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={screenTimeLimit}
+                  onChange={(e) => updateScreenTimeLimitInput(e.target.value)}
+                  onBlur={(e) => {
+                    const digits = e.target.value.replace(/\D/g, '')
+                    saveScreenTimeLimit(Math.max(0, Number(digits) || 0))
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.currentTarget.blur()
+                    }
+                  }}
+                  className="w-28 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-right text-2xl font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                  aria-label="Screen time limit in minutes"
+                />
+                <span className="text-sm font-normal text-slate-500">mins</span>
+              </label>
             </div>
-            <input
-              className="range-slider w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-primary focus:outline-none"
-              type="range"
-              min="15"
-              max="120"
-              step="5"
-              value={screenTimeLimit}
-              onChange={(e) => setScreenTimeLimit(Number(e.target.value))}
-              onMouseUp={(e) => saveScreenTimeLimit(Number(e.target.value))}
-              onTouchEnd={(e) => saveScreenTimeLimit(Number(e.target.value))}
-            />
-            <div className="flex justify-between text-xs text-slate-400 font-medium">
-              <span>15m</span>
-              <span>30m</span>
-              <span>45m</span>
-              <span>1h</span>
-              <span>2h</span>
+            <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 dark:bg-slate-800 p-1">
+              <button
+                type="button"
+                onClick={chooseScreenTimeSliderMode}
+                className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                  screenTimeMode === 'slider'
+                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
+              >
+                0-120m
+              </button>
+              <button
+                type="button"
+                onClick={chooseScreenTimeOtherMode}
+                className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                  screenTimeMode === 'other'
+                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
+              >
+                Other
+              </button>
             </div>
+            {screenTimeMode !== 'other' && (
+              <>
+                <input
+                  className="range-slider w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none accent-primary focus:outline-none cursor-pointer"
+                  type="range"
+                  min="0"
+                  max="120"
+                  step="5"
+                  value={Math.min(120, screenTimeLimit)}
+                  onChange={(e) => {
+                    setScreenTimeMode('slider')
+                    setScreenTimeLimit(Number(e.target.value))
+                  }}
+                  onMouseUp={(e) => saveScreenTimeLimit(Number(e.target.value))}
+                  onTouchEnd={(e) => saveScreenTimeLimit(Number(e.target.value))}
+                />
+                <div className="flex justify-between text-xs text-slate-400 font-medium">
+                  <span>0m</span>
+                  <span>15m</span>
+                  <span>1h</span>
+                  <span>2h</span>
+                </div>
+              </>
+            )}
             {savingLimit && <p className="text-xs text-slate-400 text-center">Saving…</p>}
             {insights && (
               <div className="p-3 bg-blue-50 dark:bg-slate-800/50 rounded-lg text-xs text-blue-700 dark:text-slate-300">
@@ -321,52 +377,19 @@ export default function Insights() {
           </div>
         </section>
 
-        {/* Privacy & Safety */}
+        {/* Settings */}
         <section className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded-lg text-red-500">
-              <span className="material-symbols-outlined">lock</span>
-            </div>
-            <div>
-              <h2 className="text-lg font-bold leading-tight">Privacy &amp; Safety</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Manage data permissions</p>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between py-2">
-            <div className="flex-1 pr-4">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">Safe Audio Collection</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-snug">
-                Allow app to process voice for pronunciation activities. Data is processed locally and never uploaded.
-              </p>
-              <span className="inline-block mt-2 text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded border border-green-100">
-                COPPA Compliant
-              </span>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                className="sr-only peer"
-                type="checkbox"
-                checked={audioEnabled}
-                onChange={(e) => toggleAudio(e.target.checked)}
-              />
-              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/30 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
-            </label>
-          </div>
-
+          <h2 className="text-lg font-bold leading-tight mb-4">Settings</h2>
+          <button
+            onClick={() => setShowChangePinModal(true)}
+            className="w-full py-3 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white bg-slate-50 dark:bg-slate-800 rounded-lg flex items-center justify-center gap-2 transition-colors"
+          >
+            <span className="material-symbols-outlined text-lg">shield_person</span>
+            Change Parent PIN
+          </button>
           {pinSuccessMsg && (
             <p className="text-green-600 text-sm text-center bg-green-50 py-2 px-3 rounded-lg mt-3">{pinSuccessMsg}</p>
           )}
-
-          <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-            <button
-              onClick={() => setShowChangePinModal(true)}
-              className="w-full py-3 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white bg-slate-50 dark:bg-slate-800 rounded-lg flex items-center justify-center gap-2 transition-colors"
-            >
-              <span className="material-symbols-outlined text-lg">shield_person</span>
-              Change Parent PIN
-            </button>
-          </div>
         </section>
 
         </div>{/* end right column */}

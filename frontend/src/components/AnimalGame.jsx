@@ -8,119 +8,26 @@ const ANIMALS = [
   'Rabbit', 'Monkey', 'Horse', 'Tiger', 'Zebra', 'Turtle',
 ]
 
-const ANIMAL_EMOJIS = {
-  Dog: '🐶',
-  Cat: '🐱',
-  Cow: '🐮',
-  Pig: '🐷',
-  Frog: '🐸',
-  Lion: '🦁',
-  Bear: '🐻',
-  Elephant: '🐘',
-  Giraffe: '🦒',
-  Penguin: '🐧',
-  Fox: '🦊',
-  Duck: '🦆',
-  Rabbit: '🐰',
-  Monkey: '🐵',
-  Horse: '🐴',
-  Tiger: '🐯',
-  Zebra: '🦓',
-  Turtle: '🐢',
-}
-
-// Verified Wikimedia Commons thumbnail URLs
+// Local animal photos downloaded into frontend/public/resources/animals.
 const ANIMAL_IMAGES = {
-  Dog: [
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/Labrador_on_Quantock_%282175262184%29.jpg/500px-Labrador_on_Quantock_%282175262184%29.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/Golden_Retriever_Dukedestiny01_drvd.jpg/500px-Golden_Retriever_Dukedestiny01_drvd.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/German_Shepherd_-_DSC_0346_%2810096362833%29.jpg/500px-German_Shepherd_-_DSC_0346_%2810096362833%29.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Beagle_600.jpg/500px-Beagle_600.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/Huskiesatrest.jpg/500px-Huskiesatrest.jpg',
-  ],
-  Cat: [
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Cat_August_2010-4.jpg/500px-Cat_August_2010-4.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/1/16/Siamese_cat_Vaillante.JPG/480px-Siamese_cat_Vaillante.JPG',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/8/81/Persialainen.jpg/480px-Persialainen.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/M%C3%A2le_Black_Silver_Blotched_Tabby.jpeg/500px-M%C3%A2le_Black_Silver_Blotched_Tabby.jpeg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Paintedcats_Red_Star_standing.jpg/500px-Paintedcats_Red_Star_standing.jpg',
-  ],
-  Cow: [
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Cow_%28Fleckvieh_breed%29_Oeschinensee_Slaunger_2009-07-07.jpg/500px-Cow_%28Fleckvieh_breed%29_Oeschinensee_Slaunger_2009-07-07.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Bou%C3%ABts_d%27J%C3%A8rri_%C3%8Agypte_5_J%C3%A8rri_Mai_2009.jpg/500px-Bou%C3%ABts_d%27J%C3%A8rri_%C3%8Agypte_5_J%C3%A8rri_Mai_2009.jpg',
-  ],
-  Pig: [
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Pig_farm_Vampula_1.jpg/500px-Pig_farm_Vampula_1.jpg',
-  ],
-  Frog: [
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/Red-eyed_Leaf_Frog_%2849661076226%29.jpg/500px-Red-eyed_Leaf_Frog_%2849661076226%29.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/a/aa/North-American-bullfrog1.jpg/500px-North-American-bullfrog1.jpg',
-  ],
-  Lion: [
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a6/020_The_lion_king_Snyggve_in_the_Serengeti_National_Park_Photo_by_Giles_Laurent.jpg/500px-020_The_lion_king_Snyggve_in_the_Serengeti_National_Park_Photo_by_Giles_Laurent.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Lions.Gir5_%28cropped%29.jpg/500px-Lions.Gir5_%28cropped%29.jpg',
-  ],
-  Bear: [
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Ours_brun_parcanimalierpyrenees_1.jpg/500px-Ours_brun_parcanimalierpyrenees_1.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/7/71/2010-kodiak-bear-1.jpg/500px-2010-kodiak-bear-1.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/Polar_Bear_-_Alaska_%28cropped%29.jpg/500px-Polar_Bear_-_Alaska_%28cropped%29.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/Grosser_Panda.JPG/500px-Grosser_Panda.JPG',
-  ],
-  Elephant: [
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/African_Bush_Elephant.jpg/500px-African_Bush_Elephant.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Elephas_maximus_%28Bandipur%29.jpg/500px-Elephas_maximus_%28Bandipur%29.jpg',
-  ],
-  Giraffe: [
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Giraffe_Mikumi_National_Park.jpg/500px-Giraffe_Mikumi_National_Park.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/Two_Giraffes.PNG/500px-Two_Giraffes.PNG',
-  ],
-  Penguin: [
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/Aptenodytes_forsteri_-Snow_Hill_Island%2C_Antarctica_-adults_and_juvenile-8.jpg/500px-Aptenodytes_forsteri_-Snow_Hill_Island%2C_Antarctica_-adults_and_juvenile-8.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Wikimania_2018%2C_Cape_Town_%28_1050602%29%2C_crop.jpg/500px-Wikimania_2018%2C_Cape_Town_%28_1050602%29%2C_crop.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Blue_Penguin_Kapiti.jpg/500px-Blue_Penguin_Kapiti.jpg',
-  ],
-  Fox: [
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Vulpes_vulpes_ssp_fulvus.jpg/500px-Vulpes_vulpes_ssp_fulvus.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Portrait_of_a_red_fox_in_Rautas_fj%C3%A4llurskog_%28cropped%29.jpg/500px-Portrait_of_a_red_fox_in_Rautas_fj%C3%A4llurskog_%28cropped%29.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/d/dc/Vulpes_lagopus_in_Iceland_%28cropped_3%29.jpg/500px-Vulpes_lagopus_in_Iceland_%28cropped_3%29.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/Fennec_Fox_Vulpes_zerda.jpg/500px-Fennec_Fox_Vulpes_zerda.jpg',
-  ],
-  Duck: [
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/b/bf/Bucephala-albeola-010.jpg/500px-Bucephala-albeola-010.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/b/bf/Anas_platyrhynchos_male_female_quadrat.jpg/500px-Anas_platyrhynchos_male_female_quadrat.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Wood_Duck_Wissahickon_Creek.png/500px-Wood_Duck_Wissahickon_Creek.png',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Pair_of_mandarin_ducks.jpg/500px-Pair_of_mandarin_ducks.jpg',
-  ],
-  Rabbit: [
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Oryctolagus_cuniculus_Rcdo.jpg/500px-Oryctolagus_cuniculus_Rcdo.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Oryctolagus_cuniculus_-_euqirneto_-_419737670_%28cropped%29.jpeg/500px-Oryctolagus_cuniculus_-_euqirneto_-_419737670_%28cropped%29.jpeg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Eastern_cottontail_%28Sylvilagus_floridanus%29_foraging_on_ground_vegetation.jpg/500px-Eastern_cottontail_%28Sylvilagus_floridanus%29_foraging_on_ground_vegetation.jpg',
-  ],
-  Monkey: [
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/d/dc/BrownSpiderMonkey_%28edit2%29.jpg/500px-BrownSpiderMonkey_%28edit2%29.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/a/aa/Japanese_Snow_Monkey_%28Macaque%29_Mother_Grooms_Her_Young.jpg/500px-Japanese_Snow_Monkey_%28Macaque%29_Mother_Grooms_Her_Young.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/Capuchin_Costa_Rica.jpg/500px-Capuchin_Costa_Rica.jpg',
-  ],
-  Horse: [
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Horse_007.jpg/500px-Horse_007.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/5/54/Halterstandingshotarabianone.jpg/500px-Halterstandingshotarabianone.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/289-o-Galant-SWE-71-SH-03.jpg/500px-289-o-Galant-SWE-71-SH-03.jpg',
-  ],
-  Tiger: [
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Bengal_tiger_%28Panthera_tigris_tigris%29_female_3_crop.jpg/500px-Bengal_tiger_%28Panthera_tigris_tigris%29_female_3_crop.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/8/84/Bengal_tiger_in_Sanjay_Dubri_Tiger_Reserve_December_2024_by_Tisha_Mukherjee_11.jpg/500px-Bengal_tiger_in_Sanjay_Dubri_Tiger_Reserve_December_2024_by_Tisha_Mukherjee_11.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b9/P.t.altaica_Tomak_Male.jpg/500px-P.t.altaica_Tomak_Male.jpg',
-  ],
-  Zebra: [
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/9/96/Plains_Zebra_Equus_quagga_cropped.jpg/500px-Plains_Zebra_Equus_quagga_cropped.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Equus_quagga_burchellii_-_Etosha%2C_2014.jpg/500px-Equus_quagga_burchellii_-_Etosha%2C_2014.jpg',
-  ],
-  Turtle: [
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Turtle_diversity.jpg/500px-Turtle_diversity.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Chelonia_mydas_is_going_for_the_air_edit.jpg/500px-Chelonia_mydas_is_going_for_the_air_edit.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/Green_sea_turtle_%28Chelonia_mydas%29_Moorea.jpg/500px-Green_sea_turtle_%28Chelonia_mydas%29_Moorea.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6c/Eastern_Box_Turtle2.jpg/500px-Eastern_Box_Turtle2.jpg',
-  ],
+  Dog: ['/resources/animals/dog-1.jpg', '/resources/animals/dog-2.jpg', '/resources/animals/dog-3.jpg'],
+  Cat: ['/resources/animals/cat-1.jpg', '/resources/animals/cat-2.jpg', '/resources/animals/cat-3.jpg'],
+  Cow: ['/resources/animals/cow-1.jpg', '/resources/animals/cow-2.jpg'],
+  Pig: ['/resources/animals/pig-1.jpg', '/resources/animals/pig-2.jpg', '/resources/animals/pig-3.jpg'],
+  Frog: ['/resources/animals/frog-1.jpg', '/resources/animals/frog-2.jpg'],
+  Lion: ['/resources/animals/lion-1.jpg', '/resources/animals/lion-2.jpg'],
+  Bear: ['/resources/animals/bear-1.jpg', '/resources/animals/bear-2.jpg', '/resources/animals/bear-3.jpg'],
+  Elephant: ['/resources/animals/elephant-1.jpg', '/resources/animals/elephant-2.jpg'],
+  Giraffe: ['/resources/animals/giraffe-1.jpg', '/resources/animals/giraffe-2.png'],
+  Penguin: ['/resources/animals/penguin-1.jpg', '/resources/animals/penguin-2.jpg'],
+  Fox: ['/resources/animals/fox-1.jpg', '/resources/animals/fox-2.jpg', '/resources/animals/fox-3.jpg'],
+  Duck: ['/resources/animals/duck-1.jpg', '/resources/animals/duck-2.png', '/resources/animals/duck-3.jpg'],
+  Rabbit: ['/resources/animals/rabbit-1.jpg', '/resources/animals/rabbit-2.jpg'],
+  Monkey: ['/resources/animals/monkey-1.jpg', '/resources/animals/monkey-2.jpg', '/resources/animals/monkey-3.jpg'],
+  Horse: ['/resources/animals/horse-1.jpg', '/resources/animals/horse-2.jpg'],
+  Tiger: ['/resources/animals/tiger-1.jpg', '/resources/animals/tiger-2.jpg'],
+  Zebra: ['/resources/animals/zebra-1.jpg', '/resources/animals/zebra-2.jpg'],
+  Turtle: ['/resources/animals/turtle-1.jpg', '/resources/animals/turtle-2.jpg', '/resources/animals/turtle-3.jpg'],
 }
 
 function pickImage(name) {
@@ -128,15 +35,39 @@ function pickImage(name) {
   return imgs.length > 0 ? imgs[Math.floor(Math.random() * imgs.length)] : null
 }
 
-function AnimalImage({ name, className = '', fallbackClassName = 'text-6xl' }) {
+function AnimalImage({ name, image, className = '', imageClassName = '', fallbackClassName = 'text-sm' }) {
+  const sources = [image, ...(ANIMAL_IMAGES[name] ?? []).filter(src => src !== image)].filter(Boolean)
+  const [attempt, setAttempt] = useState(0)
+  const [failed, setFailed] = useState(sources.length === 0)
+
+  useEffect(() => {
+    setAttempt(0)
+    setFailed(sources.length === 0)
+  }, [name, image]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const src = sources[attempt]
+
   return (
     <div
       className={`flex items-center justify-center bg-gradient-to-br from-white via-slate-50 to-slate-100 ${className}`}
       aria-label={name}
     >
-      <span className={`${fallbackClassName} select-none drop-shadow-sm`} aria-hidden="true">
-        {ANIMAL_EMOJIS[name] ?? '🐾'}
-      </span>
+      {src && !failed ? (
+        <img
+          src={src}
+          alt=""
+          className={imageClassName}
+          draggable={false}
+          onError={() => {
+            if (attempt < sources.length - 1) setAttempt(i => i + 1)
+            else setFailed(true)
+          }}
+        />
+      ) : (
+        <span className={`${fallbackClassName} select-none text-slate-500 font-bold`} aria-hidden="true">
+          Photo unavailable
+        </span>
+      )}
     </div>
   )
 }
@@ -286,8 +217,10 @@ function ClickMode({ onBack }) {
                 >
                   <AnimalImage
                     name={animal.name}
+                    image={animal.image}
                     className="w-full h-full"
-                    fallbackClassName="text-6xl"
+                    imageClassName="w-full h-full object-cover select-none"
+                    fallbackClassName="text-sm"
                   />
                 </button>
               )
@@ -415,8 +348,10 @@ function AudioMode({ onBack }) {
             <div className="w-72 h-72 rounded-3xl bg-white shadow-xl overflow-hidden flex items-center justify-center">
               <AnimalImage
                 name={animal}
+                image={currentImage}
                 className="w-full h-full"
-                fallbackClassName="text-7xl"
+                imageClassName="w-full h-full object-cover"
+                fallbackClassName="text-sm"
               />
             </div>
           </div>

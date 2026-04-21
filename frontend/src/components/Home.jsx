@@ -141,24 +141,6 @@ export default function Home() {
                 />
 
             </div>
-
-            {/* Puzzles Card (full width) */}
-            <button
-              onClick={() => !exceeded && navigate('/game')}
-              disabled={exceeded}
-              className={`w-full flex items-center gap-6 bg-white dark:bg-slate-800 px-6 py-5 rounded-xl shadow-sm border-b-4 border-primary hover:shadow-md active:border-b-0 active:translate-y-1 transition-all group ${exceeded ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              <div className="w-16 h-16 bg-primary/20 text-green-600 dark:text-primary rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shrink-0">
-                <span className="material-symbols-outlined text-[40px]">extension</span>
-              </div>
-              <div className="text-left flex-1">
-                <span className="font-bold text-xl text-slate-700 dark:text-slate-200 block">Puzzles</span>
-                <span className="text-sm text-slate-500 dark:text-slate-400">Daily Challenge</span>
-              </div>
-              <div className="w-10 h-10 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-slate-400">arrow_forward</span>
-              </div>
-            </button>
           </section>
         </div>
       </main>
@@ -178,8 +160,8 @@ export default function Home() {
 
 function ChildProfileWidget({ child, xp }) {
   const balance = xp?.balance ?? 0
-  const totalEarned = xp?.total_earned ?? 0
-  const totalSpent = xp?.total_spent ?? 0
+  const earnedToday = xp?.earned_today ?? 0
+  const spentToday = xp?.spent_today ?? 0
 
   return (
     <section className="relative h-[280px] lg:h-[300px] overflow-hidden rounded-2xl bg-white dark:bg-slate-800 shadow-xl border border-white/70 dark:border-slate-700 p-6 flex flex-col justify-between">
@@ -203,8 +185,8 @@ function ChildProfileWidget({ child, xp }) {
 
       <div className="relative z-10 grid grid-cols-3 gap-2.5">
         <ProfileStat label="XP Balance" value={balance} icon="bolt" strong />
-        <ProfileStat label="Earned" value={totalEarned} icon="trending_up" />
-        <ProfileStat label="Spent" value={totalSpent} icon="forest" />
+        <ProfileStat label="Earned Today" value={earnedToday} icon="trending_up" />
+        <ProfileStat label="Spent Today" value={spentToday} icon="forest" />
       </div>
     </section>
   )
@@ -227,6 +209,7 @@ function ForestAdventureCard({ exceeded, xp, onClick }) {
   const balance = xp?.balance ?? 0
   const canAfford = balance >= cost
   const disabled = exceeded || !canAfford
+  const needed = Math.max(0, cost - balance)
 
   return (
     <button
@@ -242,8 +225,8 @@ function ForestAdventureCard({ exceeded, xp, onClick }) {
         src="https://lh3.googleusercontent.com/aida-public/AB6AXuAPXuXeCuV6S_po5mvDGvDfEN4Hr08Q0OoLk1LfhGV468spIwDamycUVV51s_bvaGlLc9Q6VDlKQjr5pjfwBpP495q-WBOUPwtHx7oljyzRyVEIjmDD8iYzR-F2P1tv6bQXUGseAOd7Pr0Dy_RUDryMv_wk6pI5Hs__EgVDN59tg0Qk7hZsQobqKmHYnPUR3d4KztnpUXhLM8I3fRgI8qYC-IbZjomzgPlpMG72HJfoA9aVmo7fb6ucEPaY6DcwlaiuCxpATVjI1A0"
       />
       <div className="absolute top-5 left-5 right-5 z-20 flex items-center justify-between gap-3">
-        <div className="bg-primary text-slate-900 text-xs font-black px-3 py-1.5 rounded-full uppercase tracking-wider">
-          Costs {cost} XP
+        <div className={`${canAfford ? 'bg-primary text-slate-900' : 'bg-white/90 text-slate-800'} text-xs font-black px-3 py-1.5 rounded-full uppercase tracking-wider`}>
+          {canAfford ? `Costs ${cost} XP` : `${balance}/${cost} XP`}
         </div>
         <div className="bg-white/20 backdrop-blur-md w-14 h-14 rounded-full flex items-center justify-center border-2 border-white/50 group-hover:scale-110 transition-transform">
           <span className="material-symbols-outlined text-white text-[36px] fill-1">{disabled ? 'lock' : 'play_arrow'}</span>
@@ -256,8 +239,14 @@ function ForestAdventureCard({ exceeded, xp, onClick }) {
             ? 'Daily screen time limit reached'
             : canAfford
               ? `Spend ${cost} XP to start a run`
-              : `Earn ${cost - balance} more XP in Let's Play`}
+              : `Need ${needed} more XP. Play Let's Play games to earn XP.`}
         </p>
+        {!exceeded && !canAfford && (
+          <div className="mt-3 inline-flex items-center gap-2 rounded-xl bg-white/15 backdrop-blur-md border border-white/25 px-3 py-2 text-xs font-bold text-white/90">
+            <span className="material-symbols-outlined text-[16px]">sports_esports</span>
+            Try Music, Whack!, Animals, or Numbers.
+          </div>
+        )}
       </div>
     </button>
   )

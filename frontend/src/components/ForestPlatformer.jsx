@@ -815,7 +815,7 @@ export default function ForestPlatformer() {
         ctx.fillText(`${scoreRef.current}`, W / 2, 300)
         ctx.font = '700 16px Lexend, sans-serif'
         ctx.fillStyle = '#647067'
-        ctx.fillText('Press Space or tap Start', W / 2, 336)
+        ctx.fillText(xpBalance >= forestCost ? 'Press Space or tap Start' : 'Play Let’s Play games to earn XP', W / 2, 336)
         ctx.textAlign = 'left'
       }
 
@@ -833,6 +833,8 @@ export default function ForestPlatformer() {
   const forestCost = xp?.forest_entry_cost ?? 25
   const xpBalance = xp?.balance ?? 0
   const canStart = xpBalance >= forestCost && !spendingXp
+  const xpNeeded = Math.max(0, forestCost - xpBalance)
+  const showNeedXpMessage = phase !== 'playing' && xpNeeded > 0
 
   return (
     <div className="min-h-screen bg-[#e9f7d7] text-slate-900 font-display flex flex-col overflow-hidden">
@@ -864,13 +866,36 @@ export default function ForestPlatformer() {
       </header>
 
       <main className="flex-1 flex flex-col items-center justify-center px-3 py-4 gap-3">
-        <div className="w-full max-w-6xl rounded-xl overflow-hidden shadow-2xl border-4 border-white bg-emerald-950">
+        <div className="relative w-full max-w-6xl rounded-xl overflow-hidden shadow-2xl border-4 border-white bg-emerald-950">
           <canvas
             ref={canvasRef}
             className="block w-full aspect-video outline-none"
             aria-label="Procedurally generated forest platformer game"
             tabIndex={0}
           />
+          {showNeedXpMessage && (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-emerald-950/55 backdrop-blur-[1px] px-4">
+              <div className="w-full max-w-md rounded-xl bg-white/95 px-7 py-6 text-center shadow-2xl border border-white">
+                <div className="mx-auto mb-3 w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[28px]">bolt</span>
+                </div>
+                <h2 className="text-2xl font-black text-slate-800">Need more XP</h2>
+                <p className="mt-2 text-sm font-semibold text-slate-500">
+                  Forest Explore costs {forestCost} XP. You have {xpBalance}, so you need {xpNeeded} more.
+                </p>
+                <p className="mt-2 text-xs font-bold text-slate-400">
+                  Play games in Let's Play to earn XP, then come back for another forest run.
+                </p>
+                <button
+                  onClick={() => navigate('/')}
+                  className="mt-5 inline-flex items-center justify-center gap-2 rounded-full bg-emerald-500 px-5 py-3 font-black text-white shadow-sm border-b-4 border-emerald-700 active:border-b-0 active:translate-y-1 transition-all"
+                >
+                  <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+                  Go Back
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="w-full max-w-6xl grid grid-cols-2 sm:grid-cols-4 gap-2">
